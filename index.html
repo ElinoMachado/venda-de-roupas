@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Loja de Camisetas</title>
+    <link rel="stylesheet" href="styles/style.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="logo">👕 Camisetas Store</div>
+      <div class="search-container">
+        <input id="search" type="text" placeholder="Buscar camiseta..." />
+        <select id="filter">
+          <option value="all">Todos</option>
+          <option value="masculina">Masculina</option>
+          <option value="feminina">Feminina</option>
+          <option value="unissex">Unissex</option>
+        </select>
+      </div>
+      <button id="view-cart" class="cart-btn">
+        🛒 Carrinho (<span id="cart-count">0</span>)
+      </button>
+    </header>
+
+    <div class="container-roupas">
+      <main id="product-list" class="products"></main>
+    </div>
+
+    <footer class="footer">
+      <p>© 2025 Camisetas Store</p>
+    </footer>
+
+    <div id="cart-modal" class="modal hidden">
+      <div class="modal-content">
+        <h2>🛍️ Seu Carrinho</h2>
+        <ul id="cart-items"></ul>
+        <div class="cart-total">
+          <p>
+            Total: <strong>R$ <span id="total">0,00</span></strong>
+          </p>
+        </div>
+        <div class="user-info">
+          <h3>Seus Dados</h3>
+          <label for="user-name">Nome:</label>
+          <input type="text" id="user-name" placeholder="Seu nome completo" />
+
+          <label for="user-address">Endereço:</label>
+          <textarea
+            id="user-address"
+            placeholder="Rua, número, bairro, cidade"
+          ></textarea>
+        </div>
+        <!--  <div class="pix-section">
+          <h3>💸 Pagamento via Pix</h3>
+          <img
+            src="imagens/qrcode-pix.png"
+            alt="QR Code Pix"
+            class="pix-code"
+          />
+          <p>
+            Escaneie o QR Code acima e envie o comprovante no WhatsApp após o
+            pagamento.
+          </p>
+        </div> -->
+        <div class="cart-actions">
+          <button id="whatsapp-btn" class="whatsapp">
+            Finalizar via WhatsApp
+          </button>
+          <button id="close-cart" class="close-btn">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="scripts/app.js"></script>
+  </body>
+</html>
