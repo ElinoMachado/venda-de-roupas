@@ -197,7 +197,7 @@ function clearCart() {
   updateCartCount();
 }
 function finishWhatsApp() {
-  const phone = "5534999999999";
+  const phone = "553491257839";
   const items = state.cart
     .map((i) => `• ${i.nome} (Tam: ${i.tamanho}) - ${currency(i.preco)}`)
     .join("%0A");
