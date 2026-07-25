@@ -14,7 +14,7 @@
     if (styled) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "/styles/style.css?v=6";
+    link.href = "/styles/style.css?v=7";
     document.head.appendChild(link);
   })();
 
@@ -424,7 +424,7 @@
       maxHp: maxHp,
       hp: maxHp,
       manaMax: b.manaMax,
-      mana: 0,
+      mana: 2, // começa perto da skill para o combate ficar mais dinâmico
       staminaMax: b.staminaMax,
       stamina: 15,
       damage: damage,
@@ -844,6 +844,8 @@
     battle: null,
     raf: 0,
     lastTs: 0,
+    prevShield: { a: 0, b: 0 },
+    shieldBreakLock: { a: false, b: false },
   };
 
   function showToast(msg) {
@@ -1059,6 +1061,71 @@
     showDetailForPick(pick);
   }
 
+  function showShieldBubble(side, on) {
+    const sprite = $("#fighter-" + side + "-sprite");
+    const bubble = $("#fighter-" + side + "-shield");
+    if (!sprite || !bubble) return;
+    sprite.classList.toggle("has-shield", on);
+    bubble.classList.toggle("is-on", on);
+  }
+
+  function playShieldBreak(side) {
+    const sprite = $("#fighter-" + side + "-sprite");
+    const layer = $("#fighter-" + side + "-shield-break");
+    const bubble = $("#fighter-" + side + "-shield");
+    if (!sprite || !layer) return;
+
+    state.shieldBreakLock[side] = true;
+    showShieldBubble(side, false);
+
+    layer.innerHTML = "";
+    const shards = 12;
+    for (let i = 0; i < shards; i++) {
+      const shard = document.createElement("span");
+      shard.className = "glass-shard";
+      const angle = (Math.PI * 2 * i) / shards + (Math.random() * 0.4 - 0.2);
+      const dist = 30 + Math.random() * 38;
+      shard.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+      shard.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+      shard.style.setProperty("--rot", (Math.random() * 240 - 120).toFixed(0) + "deg");
+      shard.style.animationDelay = (Math.random() * 0.04).toFixed(3) + "s";
+      shard.style.width = 8 + Math.random() * 10 + "px";
+      shard.style.height = 11 + Math.random() * 14 + "px";
+      layer.appendChild(shard);
+    }
+
+    sprite.classList.remove("shield-breaking");
+    void sprite.offsetWidth;
+    sprite.classList.add("shield-breaking");
+    if (bubble) bubble.classList.remove("is-on");
+
+    window.setTimeout(function () {
+      sprite.classList.remove("shield-breaking");
+      layer.innerHTML = "";
+      state.shieldBreakLock[side] = false;
+      // Se ganhou escudo durante a quebra, mostra de novo
+      if (state.battle) {
+        const f = side === "a" ? state.battle.a : state.battle.b;
+        if (f && f.shield > 0) showShieldBubble(side, true);
+      }
+    }, 620);
+  }
+
+  function syncShieldVisual(side, shieldValue) {
+    const sprite = $("#fighter-" + side + "-sprite");
+    if (!sprite) return;
+    const prev = state.prevShield[side] || 0;
+    const current = Math.max(0, shieldValue || 0);
+
+    if (current > 0) {
+      if (!state.shieldBreakLock[side]) showShieldBubble(side, true);
+    } else {
+      showShieldBubble(side, false);
+      if (prev > 0 && !state.shieldBreakLock[side]) playShieldBreak(side);
+    }
+    state.prevShield[side] = current;
+  }
+
   function setFighterUi(side, combatant) {
     const avatar = $("#fighter-" + side + "-avatar");
     avatar.textContent = combatant.glyph;
@@ -1072,6 +1139,16 @@
       "<br>" +
       awakenedLabel(combatant.awakened);
     $("#fighter-" + side + "-action").textContent = "Carregando estamina...";
+    state.prevShield[side] = 0;
+    state.shieldBreakLock[side] = false;
+    const sprite = $("#fighter-" + side + "-sprite");
+    if (sprite) {
+      sprite.classList.remove("has-shield", "shield-breaking");
+      const bubble = $("#fighter-" + side + "-shield");
+      if (bubble) bubble.classList.remove("is-on");
+      const breakLayer = $("#fighter-" + side + "-shield-break");
+      if (breakLayer) breakLayer.innerHTML = "";
+    }
     updateBars(side, combatant);
   }
 
@@ -1082,6 +1159,7 @@
     $("#fighter-" + side + "-hp-text").textContent =
       Math.ceil(f.hp) + "/" + f.maxHp + (f.shield ? " +" + f.shield : "");
     $("#fighter-" + side + "-mana-text").textContent = f.mana + "/" + f.manaMax;
+    syncShieldVisual(side, f.shield);
   }
 
   function appendLog(entry) {
@@ -1225,7 +1303,12 @@
             " em " +
             battleSeconds() +
             "s.";
-          showScreen("result");
+          // Espera a animação de escudo quebrando (se houver) antes do resultado
+          const delay =
+            state.shieldBreakLock.a || state.shieldBreakLock.b ? 700 : 280;
+          window.setTimeout(function () {
+            showScreen("result");
+          }, delay);
         },
       });
 
