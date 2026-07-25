@@ -250,6 +250,94 @@ button {
   font-size: 0.85rem;
 }
 
+.build-panel {
+  margin: 0 0 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 10px;
+}
+
+.build-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ember-2);
+}
+
+.build-row {
+  display: grid;
+  gap: 6px;
+}
+
+.build-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.build-row-head strong {
+  color: var(--text);
+  font-family: var(--font-display);
+}
+
+.build-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--ember);
+  height: 28px;
+}
+
+.star-picker,
+.awaken-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.star-picker button,
+.awaken-picker button {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.star-picker button {
+  color: #7a6a45;
+}
+
+.star-picker button.on {
+  color: #e6c35c;
+  border-color: rgba(230, 195, 92, 0.55);
+  background: rgba(230, 195, 92, 0.12);
+}
+
+.awaken-picker button.on {
+  color: var(--text);
+  border-color: rgba(240, 163, 94, 0.55);
+  background: rgba(224, 122, 58, 0.18);
+}
+
+.build-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .detail-stats {
   list-style: none;
   margin: 0;

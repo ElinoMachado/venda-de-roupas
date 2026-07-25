@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=4" />
+  <link rel="stylesheet" href="/styles/style.css?v=5" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -260,6 +260,94 @@ button {
   margin: 4px 0 10px;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.build-panel {
+  margin: 0 0 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 10px;
+}
+
+.build-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ember-2);
+}
+
+.build-row {
+  display: grid;
+  gap: 6px;
+}
+
+.build-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.build-row-head strong {
+  color: var(--text);
+  font-family: var(--font-display);
+}
+
+.build-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--ember);
+  height: 28px;
+}
+
+.star-picker,
+.awaken-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.star-picker button,
+.awaken-picker button {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.star-picker button {
+  color: #7a6a45;
+}
+
+.star-picker button.on {
+  color: #e6c35c;
+  border-color: rgba(230, 195, 92, 0.55);
+  background: rgba(230, 195, 92, 0.12);
+}
+
+.awaken-picker button.on {
+  color: var(--text);
+  border-color: rgba(240, 163, 94, 0.55);
+  background: rgba(224, 122, 58, 0.18);
+}
+
+.build-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .detail-stats {
@@ -866,6 +954,39 @@ button {
       <div class="detail" id="detail" hidden>
         <h2 id="detail-name"></h2>
         <p id="detail-meta" class="detail-meta"></p>
+
+        <div class="build-panel" id="build-panel">
+          <p class="build-title">Ajustar lutador <span id="build-slot-label">A</span></p>
+
+          <div class="build-row">
+            <div class="build-row-head">
+              <span>Nível</span>
+              <strong id="cfg-level-val">10</strong>
+            </div>
+            <input id="cfg-level" type="range" min="1" max="50" value="10" />
+          </div>
+
+          <div class="build-row">
+            <div class="build-row-head">
+              <span>Raridade</span>
+              <strong id="cfg-rarity-val">★★★☆☆</strong>
+            </div>
+            <div class="star-picker" id="cfg-rarity" role="group" aria-label="Raridade"></div>
+          </div>
+
+          <div class="build-row">
+            <div class="build-row-head">
+              <span>Despertar</span>
+              <strong id="cfg-awaken-val">Base</strong>
+            </div>
+            <div class="awaken-picker" id="cfg-awaken" role="group" aria-label="Despertar"></div>
+          </div>
+
+          <p class="build-hint" id="build-hint">
+            Nível = atributos brutos · Raridade = potência da skill · Despertar = efeitos extras
+          </p>
+        </div>
+
         <ul id="detail-stats" class="detail-stats"></ul>
         <div class="detail-abilities">
           <div>
@@ -940,6 +1061,6 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=4"></script>
+  <script src="/scripts/game.js?v=5"></script>
 </body>
 </html>
