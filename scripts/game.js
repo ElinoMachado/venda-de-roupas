@@ -14,11 +14,51 @@
     if (styled) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "/styles/style.css?v=5";
+    link.href = "/styles/style.css?v=6";
     document.head.appendChild(link);
   })();
 
-  /* ========== Personagens (kits base) ========== */
+  /* ========== Bônus de raridade por classe (por estrela) ========== */
+  const RARITY_BONUS = {
+    tank: {
+      hp: 0.5,
+      defense: 0.5,
+      damage: 0.2,
+      speed: 0.05,
+      critChance: 0.02,
+      critDamage: 0.05,
+      skill: 0.2,
+    },
+    assassin: {
+      hp: 0.2,
+      defense: 0.15,
+      damage: 0.35,
+      speed: 0.12,
+      critChance: 0.08,
+      critDamage: 0.2,
+      skill: 0.4,
+    },
+    mage: {
+      hp: 0.1,
+      defense: 0.05,
+      damage: 0.1,
+      speed: 0.3,
+      critChance: 0.03,
+      critDamage: 0.08,
+      skill: 0.65,
+    },
+    fighter: {
+      hp: 0.35,
+      defense: 0.35,
+      damage: 0.35,
+      speed: 0.1,
+      critChance: 0.05,
+      critDamage: 0.05,
+      skill: 0.3,
+    },
+  };
+
+  /* ========== Personagens (kits base em 0★ conceitual; estrelas aplicam a tabela) ========== */
   const CHARACTERS = [
     {
       id: "nyx",
@@ -34,8 +74,8 @@
         staminaMax: 100,
         damage: 82,
         defense: 24,
-        critChance: 0.28,
-        critDamage: 1.75,
+        critChance: 0.22,
+        critDamage: 1.7,
         speed: 40,
       },
       passiveName: "Lâmina Sombria",
@@ -57,14 +97,60 @@
         staminaMax: 100,
         damage: 52,
         defense: 68,
-        critChance: 0.1,
-        critDamage: 1.4,
+        critChance: 0.08,
+        critDamage: 1.35,
         speed: 20,
       },
       passiveName: "Couraça Pesada",
       skillName: "Muralha de Ferro",
       skillManaCost: 3,
       skillBasePower: 1.3,
+    },
+    {
+      id: "lyra",
+      name: "Lyra",
+      className: "Mago",
+      role: "mage",
+      defaults: { level: 10, rarity: 3, awakened: 0 },
+      color: "#6c8cff",
+      glyph: "✦",
+      base: {
+        hp: 640,
+        manaMax: 5,
+        staminaMax: 100,
+        damage: 70,
+        defense: 20,
+        critChance: 0.14,
+        critDamage: 1.55,
+        speed: 46,
+      },
+      passiveName: "Catalisador Arcano",
+      skillName: "Meteoro Arcano",
+      skillManaCost: 3,
+      skillBasePower: 2.4,
+    },
+    {
+      id: "kael",
+      name: "Kael",
+      className: "Lutador",
+      role: "fighter",
+      defaults: { level: 10, rarity: 3, awakened: 0 },
+      color: "#d4a017",
+      glyph: "✊",
+      base: {
+        hp: 960,
+        manaMax: 5,
+        staminaMax: 100,
+        damage: 74,
+        defense: 42,
+        critChance: 0.16,
+        critDamage: 1.5,
+        speed: 30,
+      },
+      passiveName: "Espírito de Luta",
+      skillName: "Rajada de Golpes",
+      skillManaCost: 3,
+      skillBasePower: 1.8,
     },
   ];
 
@@ -89,17 +175,17 @@
     };
   }
 
-  /** Nível sobe atributos brutos; raridade sobe pouco o físico e muito a skill */
+  /** Nível sobe atributos brutos */
   function levelMult(level) {
     return 1 + (level - 1) * 0.04;
   }
 
-  function rarityPhysMult(rarity) {
-    return 1 + (rarity - 1) * 0.025;
+  function rarityStars(rarity) {
+    return clamp(rarity, 1, 5);
   }
 
-  function raritySkillMult(rarity) {
-    return 1 + (rarity - 1) * 0.14;
+  function rarityMult(rate, rarity) {
+    return 1 + rarityStars(rarity) * rate;
   }
 
   function pct(n) {
@@ -108,7 +194,8 @@
 
   function resolveAbilities(template, rarity, awakened) {
     const a = awakened;
-    const skillMult = raritySkillMult(rarity);
+    const rb = RARITY_BONUS[template.role] || RARITY_BONUS.fighter;
+    const skillMult = rarityMult(rb.skill, rarity);
 
     if (template.role === "assassin") {
       const passive = {
@@ -128,12 +215,10 @@
         bleedTicks: 3 + (a >= 1 ? 1 : 0) + (a >= 3 ? 1 : 0),
         staminaDrain: a >= 1 ? 8 + a * 6 : 0,
       };
-
       const extras = [];
       if (passive.critStaminaRestore) extras.push("crítico restaura " + passive.critStaminaRestore + " estamina");
       if (passive.critBleedTicks) extras.push("crítico aplica sangramento (" + passive.critBleedTicks + " ticks)");
       if (passive.critChanceBonus) extras.push("+" + pct(passive.critChanceBonus) + " chance crítica");
-
       return {
         passive: passive,
         skill: skill,
@@ -161,47 +246,140 @@
       };
     }
 
-    // Tank
+    if (template.role === "tank") {
+      const passive = {
+        damageReduction: 0.14 + a * 0.035,
+        staminaOnHit: 5 + a * 3,
+        shieldOnHitPct: a >= 1 ? 0.015 + a * 0.008 : 0,
+        reflectPct: a >= 2 ? 0.04 + a * 0.015 : 0,
+      };
+      const skill = {
+        name: template.skillName,
+        manaCost: template.skillManaCost,
+        power: template.skillBasePower * skillMult * (1 + a * 0.06),
+        shieldPct: 0.14 + a * 0.03,
+        selfHealPct: a >= 1 ? 0.04 + a * 0.015 : 0,
+        enemyStaminaDrain: a >= 2 ? 12 + a * 4 : 0,
+      };
+      const extras = [];
+      if (passive.shieldOnHitPct) extras.push("ao ser atingido ganha escudo (" + pct(passive.shieldOnHitPct) + " HP)");
+      if (passive.reflectPct) extras.push("reflete " + pct(passive.reflectPct) + " do dano");
+      return {
+        passive: passive,
+        skill: skill,
+        passiveName: template.passiveName,
+        passiveDesc:
+          "Recebe " +
+          pct(passive.damageReduction) +
+          " menos dano. Ao ser atingido, recupera " +
+          passive.staminaOnHit +
+          " de estamina." +
+          (extras.length ? " Despertar: " + extras.join("; ") + "." : ""),
+        skillDesc:
+          "Consome " +
+          skill.manaCost +
+          " mana. Causa " +
+          Math.round(skill.power * 100) +
+          "% do dano e ganha escudo de " +
+          pct(skill.shieldPct) +
+          " do HP máx." +
+          (skill.selfHealPct ? " Cura " + pct(skill.selfHealPct) + " HP." : "") +
+          (skill.enemyStaminaDrain ? " Drena " + skill.enemyStaminaDrain + " estamina do alvo." : ""),
+      };
+    }
+
+    if (template.role === "mage") {
+      const passive = {
+        skillPowerBonus: 0.12 + a * 0.05,
+        basicManaChance: 0.15 + a * 0.05,
+        afterSkillStamina: a >= 1 ? 10 + a * 4 : 0,
+        burnOnSkillTicks: a >= 2 ? 1 + a : 0,
+        burnOnSkillPct: a >= 2 ? 0.025 + a * 0.01 : 0,
+      };
+      const skill = {
+        name: template.skillName,
+        manaCost: template.skillManaCost,
+        power: template.skillBasePower * skillMult * (1 + a * 0.08) * (1 + passive.skillPowerBonus),
+        ignoreDef: 0.2 + a * 0.06,
+        staminaDrain: 10 + a * 5,
+        burnTicks: 2 + (a >= 1 ? 1 : 0) + (a >= 3 ? 1 : 0),
+        burnPct: 0.05 + a * 0.015,
+      };
+      const extras = [];
+      if (passive.afterSkillStamina) extras.push("após skill recupera " + passive.afterSkillStamina + " estamina");
+      if (passive.burnOnSkillTicks) extras.push("básicos podem aplicar queimadura");
+      return {
+        passive: passive,
+        skill: skill,
+        passiveName: template.passiveName,
+        passiveDesc:
+          "Habilidades causam +" +
+          pct(passive.skillPowerBonus) +
+          " de dano. Ataques básicos têm " +
+          pct(passive.basicManaChance) +
+          " de chance de gerar +1 mana." +
+          (extras.length ? " Despertar: " + extras.join("; ") + "." : ""),
+        skillDesc:
+          "Consome " +
+          skill.manaCost +
+          " mana. Causa " +
+          Math.round(skill.power * 100) +
+          "% do dano (ignora " +
+          pct(skill.ignoreDef) +
+          " defesa), drena " +
+          skill.staminaDrain +
+          " estamina e aplica queimadura (" +
+          pct(skill.burnPct) +
+          " HP, " +
+          skill.burnTicks +
+          " ticks).",
+      };
+    }
+
+    // Lutador
     const passive = {
-      damageReduction: 0.14 + a * 0.035,
-      staminaOnHit: 5 + a * 3,
-      shieldOnHitPct: a >= 1 ? 0.015 + a * 0.008 : 0,
-      reflectPct: a >= 2 ? 0.04 + a * 0.015 : 0,
+      lowHpDamageBonus: 0.18 + a * 0.05,
+      lowHpThreshold: 0.5,
+      lifestealBasic: a >= 1 ? 0.06 + a * 0.02 : 0,
+      stackDamage: a >= 2 ? 0.04 + a * 0.01 : 0,
+      maxStacks: a >= 2 ? 3 + a : 0,
     };
     const skill = {
       name: template.skillName,
       manaCost: template.skillManaCost,
-      power: template.skillBasePower * skillMult * (1 + a * 0.06),
-      shieldPct: 0.14 + a * 0.03,
-      selfHealPct: a >= 1 ? 0.04 + a * 0.015 : 0,
-      enemyStaminaDrain: a >= 2 ? 12 + a * 4 : 0,
+      power: template.skillBasePower * skillMult * (1 + a * 0.07),
+      hits: 2 + (a >= 1 ? 1 : 0),
+      lifestealPct: 0.1 + a * 0.04,
+      selfBuffDamage: a >= 2 ? 0.12 + a * 0.04 : 0,
+      selfBuffAttacks: a >= 2 ? 2 + a : 0,
     };
-
     const extras = [];
-    if (passive.shieldOnHitPct) extras.push("ao ser atingido ganha escudo (" + pct(passive.shieldOnHitPct) + " HP)");
-    if (passive.reflectPct) extras.push("reflete " + pct(passive.reflectPct) + " do dano");
-
+    if (passive.lifestealBasic) extras.push("básicos roubam " + pct(passive.lifestealBasic) + " de vida");
+    if (passive.stackDamage) extras.push("acúmulo de +" + pct(passive.stackDamage) + " dano por golpe (máx " + passive.maxStacks + ")");
     return {
       passive: passive,
       skill: skill,
       passiveName: template.passiveName,
       passiveDesc:
-        "Recebe " +
-        pct(passive.damageReduction) +
-        " menos dano. Ao ser atingido, recupera " +
-        passive.staminaOnHit +
-        " de estamina." +
+        "Abaixo de " +
+        pct(passive.lowHpThreshold) +
+        " de vida, causa +" +
+        pct(passive.lowHpDamageBonus) +
+        " de dano." +
         (extras.length ? " Despertar: " + extras.join("; ") + "." : ""),
       skillDesc:
         "Consome " +
         skill.manaCost +
-        " mana. Causa " +
+        " mana. Desfere " +
+        skill.hits +
+        " golpes totalizando " +
         Math.round(skill.power * 100) +
-        "% do dano e ganha escudo de " +
-        pct(skill.shieldPct) +
-        " do HP máx." +
-        (skill.selfHealPct ? " Cura " + pct(skill.selfHealPct) + " HP." : "") +
-        (skill.enemyStaminaDrain ? " Drena " + skill.enemyStaminaDrain + " estamina do alvo." : ""),
+        "% do dano e rouba " +
+        pct(skill.lifestealPct) +
+        " do dano como vida." +
+        (skill.selfBuffDamage
+          ? " Extra: +" + pct(skill.selfBuffDamage) + " dano por " + skill.selfBuffAttacks + " ataques."
+          : ""),
     };
   }
 
@@ -210,9 +388,22 @@
     const level = clamp(pick.level, 1, 50);
     const rarity = clamp(pick.rarity, 1, 5);
     const awakened = clamp(pick.awakened, 0, 3);
-    const phys = levelMult(level) * rarityPhysMult(rarity);
+    const lm = levelMult(level);
+    const speedLm = 1 + (level - 1) * 0.018;
+    const rb = RARITY_BONUS[template.role] || RARITY_BONUS.fighter;
     const abilities = resolveAbilities(template, rarity, awakened);
     const b = template.base;
+
+    const maxHp = Math.round(b.hp * lm * rarityMult(rb.hp, rarity));
+    const damage = Math.round(b.damage * lm * rarityMult(rb.damage, rarity));
+    const defense = Math.round(b.defense * lm * rarityMult(rb.defense, rarity));
+    const speed = Math.round(b.speed * speedLm * rarityMult(rb.speed, rarity));
+    const critChance = clamp(
+      b.critChance + rarityStars(rarity) * rb.critChance + (abilities.passive.critChanceBonus || 0),
+      0,
+      0.95
+    );
+    const critDamage = b.critDamage + rarityStars(rarity) * rb.critDamage;
 
     return {
       id: template.id,
@@ -230,19 +421,22 @@
       passive: abilities.passive,
       skill: abilities.skill,
       skillDesc: abilities.skillDesc,
-      maxHp: Math.round(b.hp * phys),
-      hp: Math.round(b.hp * phys),
+      maxHp: maxHp,
+      hp: maxHp,
       manaMax: b.manaMax,
       mana: 0,
       staminaMax: b.staminaMax,
       stamina: 15,
-      damage: Math.round(b.damage * phys),
-      defense: Math.round(b.defense * phys),
-      critChance: b.critChance + (abilities.passive.critChanceBonus || 0),
-      critDamage: b.critDamage,
-      speed: Math.round(b.speed * (1 + (level - 1) * 0.018) * rarityPhysMult(rarity)),
+      damage: damage,
+      defense: defense,
+      critChance: critChance,
+      critDamage: critDamage,
+      speed: speed,
       shield: 0,
       bleed: null,
+      fightStacks: 0,
+      buffAttacksLeft: 0,
+      buffDamageBonus: 0,
       alive: true,
     };
   }
@@ -312,15 +506,21 @@
     return 0;
   }
 
-  function applyBleed(target, pctHp, ticks) {
+  function applyDot(target, pctHp, ticks, type) {
     if (ticks <= 0 || pctHp <= 0) return;
     const per = Math.max(1, Math.round(target.maxHp * pctHp));
+    const kind = type || "bleed";
     if (target.bleed && target.bleed.ticks > 0) {
       target.bleed.ticks = Math.max(target.bleed.ticks, ticks);
       target.bleed.damagePerTick = Math.max(target.bleed.damagePerTick, per);
+      target.bleed.type = kind;
     } else {
-      target.bleed = { ticks: ticks, damagePerTick: per, acc: 0 };
+      target.bleed = { ticks: ticks, damagePerTick: per, acc: 0, type: kind };
     }
+  }
+
+  function applyBleed(target, pctHp, ticks) {
+    applyDot(target, pctHp, ticks, "bleed");
   }
 
   function staminaRate(fighter) {
@@ -374,13 +574,36 @@
       fighter.bleed.acc -= 1;
       fighter.bleed.ticks -= 1;
       const dealt = applyDamage(fighter, fighter.bleed.damagePerTick).dealt;
-      this._push(fighter.name + " sofre " + dealt + " de sangramento", "dot", fighter.side);
+      const dotName = fighter.bleed.type === "burn" ? "queimadura" : "sangramento";
+      this._push(fighter.name + " sofre " + dealt + " de " + dotName, "dot", fighter.side);
       if (this.hooks.onHit) this.hooks.onHit(fighter, dealt, false, "bleed");
       if (!fighter.alive) {
         this._finish(this._opponent(fighter));
         return;
       }
       if (fighter.bleed.ticks <= 0) fighter.bleed = null;
+    }
+  };
+
+  Battle.prototype._offenseBonus = function (attacker) {
+    let bonus = 0;
+    const p = attacker.passive || {};
+    if (p.lowHpDamageBonus && attacker.hp / attacker.maxHp <= (p.lowHpThreshold || 0.5)) {
+      bonus += p.lowHpDamageBonus;
+    }
+    if (attacker.buffAttacksLeft > 0 && attacker.buffDamageBonus) {
+      bonus += attacker.buffDamageBonus;
+    }
+    if (attacker.fightStacks > 0 && p.stackDamage) {
+      bonus += attacker.fightStacks * p.stackDamage;
+    }
+    return bonus;
+  };
+
+  Battle.prototype._consumeBuffAttack = function (attacker) {
+    if (attacker.buffAttacksLeft > 0) {
+      attacker.buffAttacksLeft -= 1;
+      if (attacker.buffAttacksLeft <= 0) attacker.buffDamageBonus = 0;
     }
   };
 
@@ -395,13 +618,29 @@
       critBonus = p.critBonusDmg || 0;
     }
 
+    const offense = 1 + this._offenseBonus(attacker);
     const def = defender.defense * (1 - ignoreDefense) * DEFENSE_FACTOR;
-    let dmg = attacker.damage - def;
+    let dmg = attacker.damage * offense - def;
     if (probeCrit) dmg *= attacker.critDamage * (1 + critBonus);
     dmg = mitigate(defender, Math.max(1, Math.round(dmg)));
 
     const result = applyDamage(defender, dmg);
     const reflected = afterBeingHit(defender, attacker, result.dealt);
+    this._consumeBuffAttack(attacker);
+
+    if (p.lifestealBasic && result.dealt > 0) {
+      attacker.hp = clamp(attacker.hp + Math.round(result.dealt * p.lifestealBasic), 0, attacker.maxHp);
+    }
+    if (p.stackDamage && p.maxStacks) {
+      attacker.fightStacks = clamp((attacker.fightStacks || 0) + 1, 0, p.maxStacks);
+    }
+    if (p.basicManaChance && Math.random() < p.basicManaChance) {
+      attacker.mana = clamp(attacker.mana + 1, 0, attacker.manaMax);
+      this._push(attacker.name + " canaliza +1 mana", "info", attacker.side);
+    }
+    if (p.burnOnSkillTicks && Math.random() < 0.35) {
+      applyDot(defender, p.burnOnSkillPct, p.burnOnSkillTicks, "burn");
+    }
 
     if (probeCrit) {
       if (p.critStaminaRestore) {
@@ -432,19 +671,39 @@
   Battle.prototype._castSkill = function (attacker) {
     const defender = this._opponent(attacker);
     const skill = attacker.skill;
+    const p = attacker.passive || {};
     attacker.mana -= skill.manaCost;
 
-    let raw = calcRawDamage(attacker, defender, skill.power, {
-      ignoreDefense: skill.ignoreDef || 0,
-    });
-    let damage = mitigate(defender, raw.damage);
-    const result = applyDamage(defender, damage);
-    const reflected = afterBeingHit(defender, attacker, result.dealt);
+    const hits = Math.max(1, skill.hits || 1);
+    const powerPerHit = skill.power / hits;
+    let totalDealt = 0;
+    let anyCrit = false;
+    let absorbedTotal = 0;
+
+    for (let i = 0; i < hits; i++) {
+      if (!defender.alive) break;
+      const offense = 1 + this._offenseBonus(attacker);
+      let raw = calcRawDamage(attacker, defender, powerPerHit * offense, {
+        ignoreDefense: skill.ignoreDef || 0,
+      });
+      let damage = mitigate(defender, raw.damage);
+      const result = applyDamage(defender, damage);
+      totalDealt += result.dealt;
+      absorbedTotal += result.absorbed;
+      if (raw.isCrit) anyCrit = true;
+    }
+
+    const reflected = afterBeingHit(defender, attacker, totalDealt);
+    this._consumeBuffAttack(attacker);
 
     let extras = [];
     if (skill.bleedTicks) {
       applyBleed(defender, skill.bleedPct, skill.bleedTicks);
       extras.push("sangramento");
+    }
+    if (skill.burnTicks) {
+      applyDot(defender, skill.burnPct, skill.burnTicks, "burn");
+      extras.push("queimadura");
     }
     if (skill.staminaDrain) {
       defender.stamina = clamp(defender.stamina - skill.staminaDrain, 0, defender.staminaMax);
@@ -464,16 +723,30 @@
       attacker.hp = clamp(attacker.hp + heal, 0, attacker.maxHp);
       extras.push("cura " + heal);
     }
+    if (skill.lifestealPct && totalDealt > 0) {
+      const heal = Math.round(totalDealt * skill.lifestealPct);
+      attacker.hp = clamp(attacker.hp + heal, 0, attacker.maxHp);
+      extras.push("roubo " + heal);
+    }
+    if (skill.selfBuffDamage && skill.selfBuffAttacks) {
+      attacker.buffDamageBonus = skill.selfBuffDamage;
+      attacker.buffAttacksLeft = skill.selfBuffAttacks;
+      extras.push("buff de dano");
+    }
+    if (p.afterSkillStamina) {
+      attacker.stamina = clamp(attacker.stamina + p.afterSkillStamina, 0, attacker.staminaMax);
+    }
+    if (hits > 1) extras.unshift(hits + "x golpes");
 
-    const shieldTag = result.absorbed ? " (" + result.absorbed + " bloqueado)" : "";
+    const shieldTag = absorbedTotal ? " (" + absorbedTotal + " bloqueado)" : "";
     this._push(
       attacker.name +
         " usa " +
         skill.name +
         ": " +
-        result.dealt +
+        totalDealt +
         shieldTag +
-        (raw.isCrit ? " CRÍTICO!" : "") +
+        (anyCrit ? " CRÍTICO!" : "") +
         (extras.length ? " + " + extras.join(" + ") : ""),
       "skill",
       attacker.side
@@ -483,7 +756,7 @@
       if (this.hooks.onHit) this.hooks.onHit(attacker, reflected, false, "skill");
     }
     if (this.hooks.onAction) this.hooks.onAction(attacker, "skill");
-    if (this.hooks.onHit) this.hooks.onHit(defender, result.dealt, raw.isCrit, "skill");
+    if (this.hooks.onHit) this.hooks.onHit(defender, totalDealt, anyCrit, "skill");
     if (!attacker.alive) this._finish(defender);
     else if (!defender.alive) this._finish(attacker);
   };
@@ -679,6 +952,12 @@
     const template = getTemplate(pick.id);
     const preview = createCombatant(pick, "preview");
     ui.detail.hidden = false;
+    // Garante que os controles de build não fiquem atrás do dock
+    window.requestAnimationFrame(function () {
+      if (ui.buildPanel && state.mode === "select") {
+        ui.buildPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    });
     ui.detailName.textContent = template.name;
     ui.detailMeta.innerHTML =
       template.className +

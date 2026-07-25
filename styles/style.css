@@ -14,7 +14,7 @@
   --ok: #3d8f7a;
   --danger: #c44b3f;
   --radius: 14px;
-  --dock-h: 76px;
+  --dock-h: 88px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --font-display: "Oxanium", sans-serif;
   --font-body: "Sora", sans-serif;
@@ -200,7 +200,7 @@ button {
   flex-direction: column;
   gap: 4px;
   align-items: flex-start;
-  min-height: 128px;
+  min-height: 118px;
   transition: transform 0.15s ease, border-color 0.15s;
 }
 
