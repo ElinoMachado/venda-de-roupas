@@ -502,9 +502,33 @@ button {
   transform: scale(0.98);
 }
 
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.btn:disabled,
+.btn.is-disabled {
+  opacity: 0.45;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--dock-h) + var(--safe-b) + 12px);
+  transform: translateX(-50%) translateY(8px);
+  width: min(420px, calc(100% - 28px));
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #2a221a;
+  border: 1px solid rgba(240, 163, 94, 0.45);
+  color: var(--text);
+  font-size: 0.88rem;
+  text-align: center;
+  z-index: 40;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .btn.primary {
