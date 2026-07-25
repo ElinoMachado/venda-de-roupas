@@ -2,63 +2,112 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Loja Gerenciável (Google Sheets)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1612" />
+  <title>Arena RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles/style.css" />
 </head>
 <body>
-  <header class="header">
-    <h1>Loja Gerenciável</h1>
-    <div class="filters">
-      <input id="search" type="text" placeholder="Buscar por nome..." />
-      <select id="filter-category"><option value="">Categoria (todas)</option></select>
-      <select id="filter-size">
-        <option value="">Tamanho (todos)</option>
-        <option value="P">P</option>
-        <option value="M">M</option>
-        <option value="G">G</option>
-        <option value="GG">GG</option>
-      </select>
-      <label class="checkbox">
-        <input type="checkbox" id="filter-available" /> Apenas disponíveis
-      </label>
-    </div>
-    <button id="open-cart" class="cart-btn">🛒 Carrinho (<span id="cart-count">0</span>)</button>
-  </header>
+  <div class="app">
+    <header class="topbar">
+      <p class="brand">Arena RPG</p>
+      <p class="tagline" id="screen-tagline">Escolha dois lutadores</p>
+    </header>
 
-  <main>
-    <section id="products" class="products"></section>
-  </main>
+    <!-- Seleção -->
+    <section id="screen-select" class="screen screen-select">
+      <div class="slots">
+        <button type="button" class="slot" id="slot-a" data-slot="a" aria-label="Lutador A">
+          <span class="slot-label">A</span>
+          <div class="slot-body" id="slot-a-body">
+            <span class="slot-empty">Toque um personagem</span>
+          </div>
+        </button>
+        <div class="vs" aria-hidden="true">VS</div>
+        <button type="button" class="slot" id="slot-b" data-slot="b" aria-label="Lutador B">
+          <span class="slot-label">B</span>
+          <div class="slot-body" id="slot-b-body">
+            <span class="slot-empty">Toque um personagem</span>
+          </div>
+        </button>
+      </div>
 
-  <footer class="footer">
-    <p>Catálogo conectado ao Google Sheets • Atualize sua planilha e veja aqui ✨</p>
-  </footer>
+      <div class="roster" id="roster" role="list"></div>
 
-  <!-- Modal Carrinho -->
-  <div id="cart-modal" class="modal hidden" aria-hidden="true">
-    <div class="modal-content">
-      <div class="modal-head">
-        <h2>Seu Carrinho</h2>
-        <button id="close-cart" class="icon-btn" aria-label="Fechar">✖</button>
+      <div class="detail" id="detail" hidden>
+        <h2 id="detail-name"></h2>
+        <p id="detail-meta" class="detail-meta"></p>
+        <ul id="detail-stats" class="detail-stats"></ul>
+        <div class="detail-abilities">
+          <div>
+            <span class="ability-tag">Passiva</span>
+            <strong id="detail-passive-name"></strong>
+            <p id="detail-passive-desc"></p>
+          </div>
+          <div>
+            <span class="ability-tag skill">Habilidade</span>
+            <strong id="detail-skill-name"></strong>
+            <p id="detail-skill-desc"></p>
+          </div>
+        </div>
       </div>
-      <ul id="cart-list" class="cart-list"></ul>
-      <div class="cart-summary">
-        <span>Total:</span>
-        <strong>R$ <span id="cart-total">0,00</span></strong>
+    </section>
+
+    <!-- Batalha -->
+    <section id="screen-battle" class="screen screen-battle" hidden>
+      <div class="arena">
+        <article class="fighter" id="fighter-a">
+          <div class="fighter-head">
+            <div class="avatar" id="fighter-a-avatar"></div>
+            <div class="fighter-info">
+              <h2 id="fighter-a-name"></h2>
+              <p id="fighter-a-meta"></p>
+            </div>
+          </div>
+          <div class="bars">
+            <div class="bar hp"><span id="fighter-a-hp-fill"></span><em id="fighter-a-hp-text"></em></div>
+            <div class="bar mana"><span id="fighter-a-mana-fill"></span><em id="fighter-a-mana-text"></em></div>
+            <div class="bar stamina"><span id="fighter-a-stamina-fill"></span><em>EST</em></div>
+          </div>
+          <p class="action-line" id="fighter-a-action">Aguardando...</p>
+        </article>
+
+        <article class="fighter" id="fighter-b">
+          <div class="fighter-head">
+            <div class="avatar" id="fighter-b-avatar"></div>
+            <div class="fighter-info">
+              <h2 id="fighter-b-name"></h2>
+              <p id="fighter-b-meta"></p>
+            </div>
+          </div>
+          <div class="bars">
+            <div class="bar hp"><span id="fighter-b-hp-fill"></span><em id="fighter-b-hp-text"></em></div>
+            <div class="bar mana"><span id="fighter-b-mana-fill"></span><em id="fighter-b-mana-text"></em></div>
+            <div class="bar stamina"><span id="fighter-b-stamina-fill"></span><em>EST</em></div>
+          </div>
+          <p class="action-line" id="fighter-b-action">Aguardando...</p>
+        </article>
       </div>
-      <div class="cart-actions">
-        <button id="finish-whatsapp" class="whatsapp">Finalizar via WhatsApp</button>
-        <button id="clear-cart" class="danger">Esvaziar</button>
-      </div>
-    </div>
+
+      <div class="log" id="battle-log" aria-live="polite"></div>
+    </section>
+
+    <!-- Resultado -->
+    <section id="screen-result" class="screen screen-result" hidden>
+      <p class="result-label">Vencedor</p>
+      <h2 id="result-name"></h2>
+      <p id="result-summary"></p>
+    </section>
+
+    <footer class="dock">
+      <button type="button" id="btn-swap" class="btn ghost" hidden>Trocar lados</button>
+      <button type="button" id="btn-primary" class="btn primary" disabled>Iniciar luta</button>
+    </footer>
   </div>
 
-  <!-- Toast Notification -->
-  <div id="toast" class="toast">
-    <span id="toast-msg">Produto adicionado ao carrinho!</span>
-    <button id="toast-btn">Ver carrinho</button>
-  </div>
-
-  <script src="scripts/app.js"></script>
+  <script type="module" src="scripts/app.js"></script>
 </body>
 </html>
