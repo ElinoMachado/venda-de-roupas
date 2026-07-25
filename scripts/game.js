@@ -14,7 +14,7 @@
     if (styled) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "/styles/style.css?v=3";
+    link.href = "/styles/style.css?v=4";
     document.head.appendChild(link);
   })();
 
@@ -559,11 +559,55 @@
     while (ui.log.children.length > 40) ui.log.lastChild.remove();
   }
 
+  function playAttackMotion(side, kind) {
+    const el = $("#fighter-" + side);
+    if (!el) return;
+    el.classList.remove("attacking");
+    void el.offsetWidth;
+    el.classList.add("attacking");
+    window.setTimeout(function () {
+      el.classList.remove("attacking");
+    }, 360);
+
+    // Slash visual no ataque básico (e skill com traço extra)
+    const layer = $("#slash-layer");
+    if (!layer) return;
+    const slash = document.createElement("div");
+    slash.className = "slash from-" + side + (kind === "skill" ? " skill" : "");
+    layer.appendChild(slash);
+    window.setTimeout(function () {
+      slash.remove();
+    }, 420);
+  }
+
   function flashHit(side) {
     const el = $("#fighter-" + side);
+    if (!el) return;
     el.classList.remove("hit");
     void el.offsetWidth;
     el.classList.add("hit");
+    window.setTimeout(function () {
+      el.classList.remove("hit");
+    }, 450);
+  }
+
+  function spawnDamageNumber(side, amount, isCrit, kind) {
+    const layer = $("#fighter-" + side + "-floats");
+    if (!layer || amount <= 0) return;
+    const node = document.createElement("span");
+    let cls = "dmg-float";
+    if (kind === "bleed") cls += " bleed";
+    else if (kind === "skill") cls += " skill";
+    if (isCrit) cls += " crit";
+    node.className = cls;
+    node.textContent = (isCrit ? "CRIT " : "-") + amount;
+    // leve variação horizontal pra não empilhar
+    const jitter = (Math.random() * 24 - 12).toFixed(1);
+    node.style.left = "calc(50% + " + jitter + "px)";
+    layer.appendChild(node);
+    window.setTimeout(function () {
+      node.remove();
+    }, 900);
   }
 
   function setAction(side, kind) {
@@ -625,11 +669,13 @@
 
       state.battle = new Battle(a, b, {
         onLog: appendLog,
-        onHit: function (target) {
+        onHit: function (target, damage, isCrit, kind) {
           flashHit(target.side);
+          spawnDamageNumber(target.side, damage, isCrit, kind);
         },
         onAction: function (attacker, kind) {
           setAction(attacker.side, kind);
+          playAttackMotion(attacker.side, kind);
         },
         onFrame: function (battle) {
           updateBars("a", battle.a);
