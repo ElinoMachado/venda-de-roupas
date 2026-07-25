@@ -1,6 +1,23 @@
 (() => {
   "use strict";
 
+  /* Garante CSS mesmo se o <link> for bloqueado pelo preview */
+  (function ensureStyles() {
+    if (document.getElementById("arena-inline-css")) return;
+    const probe = document.createElement("div");
+    probe.className = "app";
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    document.body.appendChild(probe);
+    const styled = getComputedStyle(probe).minHeight !== "0px";
+    probe.remove();
+    if (styled) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/styles/style.css?v=3";
+    document.head.appendChild(link);
+  })();
+
   /* ========== Personagens ========== */
   const CHARACTERS = [
     {
