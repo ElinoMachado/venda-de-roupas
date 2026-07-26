@@ -251,7 +251,7 @@
       };
       return pack(template, passive, skill,
         "Frágil. Aura cura aliados (" + pct(passive.auraHealPerSec) + " HP/s). Básico cura o mais ferido.",
-        "Cura forte no aliado mais ferido e aplica buff de ataque/defesa no time.");
+        "Cura forte no mais ferido, regeneração no time por " + skill.buffDuration + "s e buff de ataque/defesa.");
     }
 
     // support_control
@@ -325,6 +325,7 @@
       defenseStacks: 0,
       atkMul: 1, defMul: 1, speedMul: 1, markMul: 1,
       buffTimer: 0, debuffTimer: 0, regenBonus: 0, reflectBonus: 0,
+      healBuffTimer: 0, healBuffPerSec: 0,
       alive: true,
     };
   }
@@ -464,6 +465,15 @@
     return true;
   };
 
+  Battle.prototype._hasAuraHealer = function (f) {
+    const allies = this._allies(f);
+    for (let i = 0; i < allies.length; i++) {
+      const s = allies[i];
+      if (s.alive && s.uid !== f.uid && s.passive && s.passive.auraHealPerSec) return true;
+    }
+    return false;
+  };
+
   Battle.prototype._tickStatus = function (f, dt) {
     if (!f.alive) return;
     if (f.buffTimer > 0) {
@@ -479,6 +489,16 @@
         // reset debuff parts carefully
         if (f.atkMul < 1) f.atkMul = 1;
         f.speedMul = 1; f.markMul = 1; f.debuffTimer = 0;
+      }
+    }
+    if (f.healBuffTimer > 0) {
+      f.healBuffTimer -= dt;
+      if (f.healBuffPerSec > 0) {
+        f.hp = clamp(f.hp + f.maxHp * f.healBuffPerSec * dt, 0, f.maxHp);
+      }
+      if (f.healBuffTimer <= 0) {
+        f.healBuffTimer = 0;
+        f.healBuffPerSec = 0;
       }
     }
     const regen = ((f.passive && f.passive.regenPerSec) || 0) + (f.regenBonus || 0);
@@ -650,6 +670,7 @@
       }
       let sideHeal = 0;
       const buffTargets = [];
+      const hotPerSec = 0.018 * skill.healPower;
       for (let i = 0; i < allies.length; i++) {
         const al = allies[i];
         if (!al.alive) continue;
@@ -659,11 +680,14 @@
         al.atkMul = Math.max(al.atkMul, 1 + skill.allyAtkBuff);
         al.defMul = Math.max(al.defMul, 1 + skill.allyDefBuff);
         al.buffTimer = Math.max(al.buffTimer, skill.buffDuration);
+        // Recuperação de vida com duração (para aura/+ countdown)
+        al.healBuffTimer = Math.max(al.healBuffTimer || 0, skill.buffDuration);
+        al.healBuffPerSec = Math.max(al.healBuffPerSec || 0, hotPerSec);
         buffTargets.push(al);
       }
       this._push(
         attacker.name + " usa " + skill.name + ": cura " + (main ? main.name + " +" + healMain : "") +
-          " / time +" + sideHeal + " + buffs",
+          " / time +" + sideHeal + " + regen " + Math.round(skill.buffDuration) + "s",
         "skill",
         attacker.team
       );
@@ -773,6 +797,10 @@
       attacker.regenBonus = Math.max(attacker.regenBonus, skill.selfRegenBuff || 0);
       attacker.reflectBonus = Math.max(attacker.reflectBonus, skill.reflectBuff || 0);
       attacker.buffTimer = Math.max(attacker.buffTimer, skill.buffDuration || 5);
+      if (skill.selfRegenBuff) {
+        attacker.healBuffTimer = Math.max(attacker.healBuffTimer || 0, skill.buffDuration || 5);
+        attacker.healBuffPerSec = Math.max(attacker.healBuffPerSec || 0, skill.selfRegenBuff);
+      }
       extras.push("fortaleza");
       if (selfBuffTargets.indexOf(attacker) < 0) selfBuffTargets.push(attacker);
     }
@@ -1126,7 +1154,12 @@
       '<article class="fighter side-' + f.team + " " + lineClass + '" id="fighter-' + f.uid + '" data-uid="' + f.uid + '">' +
       '<div class="fighter-sprite" id="fighter-' + f.uid + '-sprite">' +
       '<div class="shield-bubble" id="fighter-' + f.uid + '-shield"></div>' +
+      '<div class="heal-aura-ring" id="fighter-' + f.uid + '-heal-aura" aria-hidden="true"></div>' +
       '<div class="avatar" id="fighter-' + f.uid + '-avatar" style="--tone:' + f.color + '">' + f.glyph + "</div>" +
+      '<div class="heal-buff-badge" id="fighter-' + f.uid + '-heal-badge" hidden>' +
+      '<span class="heal-plus">+</span>' +
+      '<span class="heal-count" id="fighter-' + f.uid + '-heal-count">0</span>' +
+      "</div>" +
       '<div class="float-layer" id="fighter-' + f.uid + '-floats"></div>' +
       '<div class="shield-break" id="fighter-' + f.uid + '-shield-break"></div>' +
       "</div>" +
@@ -1155,6 +1188,45 @@
     );
   }
 
+  function getHealBuffSeconds(f) {
+    let seconds = 0;
+    if (f.healBuffTimer > 0) seconds = Math.max(seconds, f.healBuffTimer);
+    if (f.regenBonus > 0 && f.buffTimer > 0) seconds = Math.max(seconds, f.buffTimer);
+    return seconds;
+  }
+
+  function isReceivingHealRecovery(f) {
+    if (!f || !f.alive) return false;
+    if (getHealBuffSeconds(f) > 0) return true;
+    if (state.battle && typeof state.battle._hasAuraHealer === "function") {
+      return state.battle._hasAuraHealer(f);
+    }
+    return false;
+  }
+
+  function syncHealBuffVisual(f) {
+    const uid = f.uid;
+    const sprite = $("#fighter-" + uid + "-sprite");
+    const badge = $("#fighter-" + uid + "-heal-badge");
+    const count = $("#fighter-" + uid + "-heal-count");
+    if (!sprite || !badge) return;
+
+    const timed = getHealBuffSeconds(f);
+    const active = isReceivingHealRecovery(f);
+    sprite.classList.toggle("heal-aura", active);
+    badge.hidden = !active;
+    if (!active || !count) return;
+
+    if (timed > 0) {
+      count.hidden = false;
+      count.textContent = String(Math.max(1, Math.ceil(timed)));
+    } else {
+      // Aura passiva do suporte: + sem countdown fixo
+      count.hidden = true;
+      count.textContent = "";
+    }
+  }
+
   function updateUnitBars(f) {
     const uid = f.uid;
     const hpEl = $("#fighter-" + uid + "-hp-fill");
@@ -1168,6 +1240,7 @@
     const card = $("#fighter-" + uid);
     if (card) card.classList.toggle("dead", !f.alive);
     syncShieldVisual(uid, f.shield);
+    syncHealBuffVisual(f);
   }
 
   function showShieldBubble(uid, on) {
