@@ -1478,8 +1478,13 @@ button {
   text-align: left;
 }
 
-.roll-card.static {
-  pointer-events: none;
+.roll-card.active {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 1px rgba(224, 122, 58, 0.4);
+}
+
+.roll-preview {
+  margin-top: 12px;
 }
 
 .roll-card .char-glyph {

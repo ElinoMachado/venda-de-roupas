@@ -894,6 +894,8 @@
     rollChoices: $("#roll-choices"),
     rollTitle: $("#roll-title"),
     rollSubtitle: $("#roll-subtitle"),
+    rollPreview: $("#roll-preview"),
+    rollPreviewBody: $("#roll-preview-body"),
     slotsFront: $("#slots-front"),
     slotsBack: $("#slots-back"),
     detail: $("#detail"),
@@ -934,6 +936,7 @@
     selectedHeroId: null,
     rollOptions: [],
     rollContext: "starter", // starter | reward
+    selectedRollIdx: null,
     pendingReward: null,
     activeTowerId: 1,
     battle: null,
@@ -1216,7 +1219,8 @@
     } else if (mode === "roll") {
       ui.roll.hidden = false;
       ui.tagline.textContent = state.rollContext === "starter" ? "Escolha inicial" : "Recompensa";
-      setDock("—", "Escolha um herói", true);
+      state.selectedRollIdx = null;
+      setDock("—", "Selecionar herói", true);
       ui.btnPrimary.classList.add("is-disabled");
       renderRoll();
     } else if (mode === "formation") {
@@ -1351,20 +1355,60 @@
     }
     if (ui.rollSubtitle) {
       ui.rollSubtitle.textContent = state.rollContext === "starter"
-        ? "3 opções · começam em 1★ e nível 1"
-        : "Escolha 1 para colecionar ou vender por XP";
+        ? "Toque para ver detalhes · depois confirme embaixo"
+        : "Toque para ver · confirme para coletar ou vender";
     }
     ui.rollChoices.innerHTML = state.rollOptions.map(function (opt, idx) {
       const ch = getTemplate(opt.id);
+      const active = state.selectedRollIdx === idx;
       return (
-        '<button type="button" class="roll-card" data-roll-idx="' + idx + '" style="--tone:' + ch.color + '">' +
+        '<button type="button" class="roll-card' + (active ? " active" : "") +
+        '" data-roll-idx="' + idx + '" style="--tone:' + ch.color + '">' +
         '<span class="char-glyph">' + ch.glyph + "</span>" +
         "<strong>" + ch.name + "</strong>" +
         "<small>" + ch.className + "</small>" +
-        "<span class='stars'>" + starsHtml(1) + "</span>" +
+        "<span class='stars'>" + starsHtml(opt.rarity || 1) + "</span>" +
         "</button>"
       );
     }).join("");
+    renderRollPreview();
+  }
+
+  function renderRollPreview() {
+    if (!ui.rollPreview || !ui.rollPreviewBody) return;
+    const idx = state.selectedRollIdx;
+    const opt = idx == null ? null : state.rollOptions[idx];
+    if (!opt) {
+      ui.rollPreview.hidden = true;
+      ui.rollPreviewBody.innerHTML = "";
+      ui.btnPrimary.classList.add("is-disabled");
+      ui.btnPrimary.textContent = "Selecionar herói";
+      return;
+    }
+    const ch = getTemplate(opt.id);
+    const preview = createCombatant(makePick(opt.id, {
+      level: opt.level || 1,
+      rarity: opt.rarity || 1,
+      awakened: opt.awakened || 0,
+    }), "x", "front");
+    ui.rollPreview.hidden = false;
+    ui.rollPreviewBody.innerHTML =
+      "<h2>" + ch.name + "</h2>" +
+      '<p class="detail-meta">' + ch.className + " · Nv." + preview.level + " · " +
+      starsHtml(preview.rarity) + " · " + awakenedLabel(preview.awakened) + "</p>" +
+      "<ul class='detail-stats'>" +
+      [["Vida", preview.maxHp], ["Dano", preview.damage], ["Defesa", preview.defense],
+        ["Velocidade", preview.speed], ["Crit %", Math.round(preview.critChance * 100) + "%"]]
+        .map(function (r) { return "<li><span>" + r[0] + "</span><strong>" + r[1] + "</strong></li>"; })
+        .join("") +
+      "</ul>" +
+      '<div class="detail-abilities"><div><span class="ability-tag">Passiva</span><strong>' +
+      preview.passiveName + "</strong><p>" + preview.passiveDesc +
+      '</p></div><div><span class="ability-tag skill">Habilidade</span><strong>' +
+      preview.skill.name + " (" + preview.skill.manaCost + " mana)</strong><p>" +
+      preview.skillDesc + "</p></div></div>";
+    ui.btnPrimary.classList.remove("is-disabled");
+    ui.btnPrimary.textContent = "Confirmar " + ch.name;
   }
 
   function renderOwnedRoster() {
@@ -1922,6 +1966,7 @@
     state.team = emptyTeam();
     state.rollContext = "starter";
     state.rollOptions = makeRollOptions(3);
+    state.selectedRollIdx = null;
     persist();
     showScreen("roll");
   }
@@ -1929,8 +1974,7 @@
   function beginRewardRoll() {
     state.rollContext = "reward";
     state.rollOptions = makeRollOptions(3);
-    // For reward after win, user asked to roll a new hero - show 3 pick 1, then keep/sell
-    // Simplify: pick one of 3, then that becomes pending for keep/sell
+    state.selectedRollIdx = null;
     showScreen("roll");
   }
 
@@ -2049,7 +2093,8 @@
 
       const rollCard = e.target.closest("[data-roll-idx]");
       if (rollCard && state.mode === "roll") {
-        chooseRoll(Number(rollCard.getAttribute("data-roll-idx")));
+        state.selectedRollIdx = Number(rollCard.getAttribute("data-roll-idx"));
+        renderRoll();
         return;
       }
 
@@ -2107,6 +2152,12 @@
         else beginStarterRoll();
       } else if (state.mode === "heroes") {
         showScreen("formation");
+      } else if (state.mode === "roll") {
+        if (state.selectedRollIdx == null) {
+          showToast("Toque um herói para ver os detalhes");
+          return;
+        }
+        chooseRoll(state.selectedRollIdx);
       } else if (state.mode === "formation") {
         showScreen("tower");
       } else if (state.mode === "tower") {

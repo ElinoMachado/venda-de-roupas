@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=27" />
+  <link rel="stylesheet" href="/styles/style.css?v=28" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -1490,8 +1490,13 @@ button {
   text-align: left;
 }
 
-.roll-card.static {
-  pointer-events: none;
+.roll-card.active {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 1px rgba(224, 122, 58, 0.4);
+}
+
+.roll-preview {
+  margin-top: 12px;
 }
 
 .roll-card .char-glyph {
@@ -1976,8 +1981,11 @@ button {
     <!-- Roll 3 escolhas -->
     <section id="screen-roll" class="screen screen-roll" hidden>
       <h2 class="section-title" id="roll-title">Escolha seu herói</h2>
-      <p class="section-sub" id="roll-subtitle">3 opções</p>
+      <p class="section-sub" id="roll-subtitle">Toque para ver detalhes</p>
       <div class="roll-choices" id="roll-choices"></div>
+      <div class="detail roll-preview" id="roll-preview" hidden>
+        <div id="roll-preview-body"></div>
+      </div>
     </section>
 
     <!-- Formação -->
@@ -2065,11 +2073,11 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=27"></script>
+  <script src="/scripts/game.js?v=28"></script>
   <script>
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=27")
+      fetch("/styles/style.css?v=28")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");
