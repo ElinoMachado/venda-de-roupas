@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=28" />
+  <link rel="stylesheet" href="/styles/style.css?v=29" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -1474,34 +1474,98 @@ button {
   font-size: 0.82rem;
 }
 
+.screen-roll .roll-preview {
+  order: 0;
+}
+
 .roll-choices {
   display: grid;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
 }
 
 .roll-card {
   border: 1px solid var(--line);
   background: linear-gradient(165deg, #352b22, #241d17);
   border-radius: var(--radius);
-  padding: 14px 12px;
+  padding: 10px 6px;
   display: grid;
-  gap: 4px;
-  justify-items: start;
-  text-align: left;
+  gap: 3px;
+  justify-items: center;
+  text-align: center;
+  min-width: 0;
 }
 
 .roll-card.active {
   border-color: var(--ember);
   box-shadow: 0 0 0 1px rgba(224, 122, 58, 0.4);
+  background: linear-gradient(165deg, #4a3424, #2c2118);
 }
 
 .roll-preview {
-  margin-top: 12px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, #32281f, #221b15);
+  min-height: 120px;
+}
+
+.roll-preview h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.roll-preview-placeholder {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  padding: 18px 8px;
 }
 
 .roll-card .char-glyph {
-  width: 52px;
-  height: 52px;
+  width: 40px;
+  height: 40px;
+  font-size: 1.15rem;
+}
+
+.roll-card strong {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+}
+
+.roll-card small {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.roll-card .stars {
+  font-size: 0.62rem;
+  letter-spacing: -0.04em;
+  color: #e6c35c;
+}
+
+.roll-card-stats {
+  display: block;
+  width: 100%;
+  font-size: 0.58rem;
+  line-height: 1.25;
+  color: var(--text);
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.roll-card-skill {
+  display: block;
+  width: 100%;
+  font-size: 0.58rem;
+  color: var(--mana);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tower-tabs {
@@ -1981,11 +2045,13 @@ button {
     <!-- Roll 3 escolhas -->
     <section id="screen-roll" class="screen screen-roll" hidden>
       <h2 class="section-title" id="roll-title">Escolha seu herói</h2>
-      <p class="section-sub" id="roll-subtitle">Toque para ver detalhes</p>
-      <div class="roll-choices" id="roll-choices"></div>
-      <div class="detail roll-preview" id="roll-preview" hidden>
-        <div id="roll-preview-body"></div>
+      <p class="section-sub" id="roll-subtitle">Toque um dos 3 cards — os detalhes aparecem aqui em cima</p>
+      <div class="detail roll-preview" id="roll-preview">
+        <div id="roll-preview-body">
+          <p class="roll-preview-placeholder">Toque um dos 3 heróis abaixo para ver vida, dano, passiva e habilidade.</p>
+        </div>
       </div>
+      <div class="roll-choices" id="roll-choices"></div>
     </section>
 
     <!-- Formação -->
@@ -2073,11 +2139,11 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=28"></script>
+  <script src="/scripts/game.js?v=29"></script>
   <script>
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=28")
+      fetch("/styles/style.css?v=29")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");

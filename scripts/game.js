@@ -3,7 +3,7 @@
 
   (function ensureStyles() {
     if (document.getElementById("arena-inline-css")) return;
-    fetch("/styles/style.css?v=26")
+    fetch("/styles/style.css?v=29")
       .then(function (r) { return r.text(); })
       .then(function (css) {
         if (document.getElementById("arena-inline-css")) return;
@@ -872,9 +872,9 @@
 
   const SAVE_KEY = "arena_rpg_save_v2";
   const TOWERS = [
-    { id: 1, name: "Torre 1", subtitle: "Equipe 1", teamSize: 1, floors: 4, baseLevel: 4 },
-    { id: 2, name: "Torre 2", subtitle: "Equipe 2", teamSize: 2, floors: 4, baseLevel: 10 },
-    { id: 3, name: "Torre 3", subtitle: "Equipe 3", teamSize: 3, floors: 4, baseLevel: 16 },
+    { id: 1, name: "Torre 1", subtitle: "Equipe 1", teamSize: 1, floors: 4, baseLevel: 1, levelStep: 2 },
+    { id: 2, name: "Torre 2", subtitle: "Equipe 2", teamSize: 2, floors: 4, baseLevel: 8, levelStep: 3 },
+    { id: 3, name: "Torre 3", subtitle: "Equipe 3", teamSize: 3, floors: 4, baseLevel: 14, levelStep: 3 },
   ];
 
   const ui = {
@@ -1124,19 +1124,31 @@
   }
 
   function enemyLevelFor(tower, floorIndex) {
-    return clamp(tower.baseLevel + floorIndex * 3, 1, 50);
+    const step = tower.levelStep != null ? tower.levelStep : 3;
+    return clamp(tower.baseLevel + floorIndex * step, 1, 50);
   }
 
   function buildEnemyTeam(tower, floorIndex) {
     const size = tower.teamSize;
     const level = enemyLevelFor(tower, floorIndex);
-    const rarity = clamp(1 + Math.floor(floorIndex / 2), 1, 4);
-    const awakened = floorIndex >= 3 ? 1 : 0;
+    // Torre 1 andar 1: sempre Nv.1 · 1★ · sem despertar (tutorial)
+    const rarity = tower.id === 1
+      ? (floorIndex === 0 ? 1 : clamp(1 + Math.floor(floorIndex / 2), 1, 2))
+      : clamp(1 + Math.floor(floorIndex / 2), 1, 4);
+    const awakened = tower.id === 1 ? 0 : (floorIndex >= 3 ? 1 : 0);
     const used = [];
     const team = emptyTeam();
     const slots = SLOT_ORDER.slice(0, size);
+    // Primeiro combate: inimigo mais simples (não tank/controle)
+    const easyFirstIds = ["nyx", "kael", "lyra", "mira", "brutus"];
     slots.forEach(function (slot) {
-      const id = randomHeroId(used);
+      let id;
+      if (tower.id === 1 && floorIndex === 0) {
+        const pool = easyFirstIds.filter(function (x) { return used.indexOf(x) < 0; });
+        id = pool[Math.floor(Math.random() * pool.length)] || randomHeroId(used);
+      } else {
+        id = randomHeroId(used);
+      }
       used.push(id);
       team[slot] = makePick(id, { level: level, rarity: rarity, awakened: awakened });
     });
@@ -1347,6 +1359,14 @@
       preview.skill.name + "</strong><p>" + preview.skillDesc + "</p></div></div>";
   }
 
+  function rollPickPreview(opt) {
+    return createCombatant(makePick(opt.id, {
+      level: opt.level || 1,
+      rarity: opt.rarity || 1,
+      awakened: opt.awakened || 0,
+    }), "x", "front");
+  }
+
   function renderRoll() {
     if (ui.rollTitle) {
       ui.rollTitle.textContent = state.rollContext === "starter"
@@ -1354,20 +1374,25 @@
         : "Rolete da vitória";
     }
     if (ui.rollSubtitle) {
-      ui.rollSubtitle.textContent = state.rollContext === "starter"
-        ? "Toque para ver detalhes · depois confirme embaixo"
-        : "Toque para ver · confirme para coletar ou vender";
+      ui.rollSubtitle.textContent = "Toque um dos 3 cards — detalhes aparecem no painel acima";
     }
-    ui.rollChoices.innerHTML = state.rollOptions.map(function (opt, idx) {
+    const choices = document.getElementById("roll-choices") || ui.rollChoices;
+    if (!choices) return;
+    choices.innerHTML = state.rollOptions.map(function (opt, idx) {
       const ch = getTemplate(opt.id);
+      const preview = rollPickPreview(opt);
       const active = state.selectedRollIdx === idx;
       return (
         '<button type="button" class="roll-card' + (active ? " active" : "") +
         '" data-roll-idx="' + idx + '" style="--tone:' + ch.color + '">' +
         '<span class="char-glyph">' + ch.glyph + "</span>" +
         "<strong>" + ch.name + "</strong>" +
-        "<small>" + ch.className + "</small>" +
+        "<small>" + ch.className + " · Nv." + preview.level + "</small>" +
         "<span class='stars'>" + starsHtml(opt.rarity || 1) + "</span>" +
+        '<span class="roll-card-stats">HP ' + preview.maxHp +
+        " · ATK " + preview.damage +
+        " · DEF " + preview.defense + "</span>" +
+        '<span class="roll-card-skill">' + preview.skill.name + "</span>" +
         "</button>"
       );
     }).join("");
@@ -1375,38 +1400,42 @@
   }
 
   function renderRollPreview() {
-    if (!ui.rollPreview || !ui.rollPreviewBody) return;
+    const box = document.getElementById("roll-preview") || ui.rollPreview;
+    const body = document.getElementById("roll-preview-body") || ui.rollPreviewBody;
+    if (!box || !body) return;
+
+    box.hidden = false;
+    box.removeAttribute("hidden");
+
     const idx = state.selectedRollIdx;
     const opt = idx == null ? null : state.rollOptions[idx];
     if (!opt) {
-      ui.rollPreview.hidden = true;
-      ui.rollPreviewBody.innerHTML = "";
+      body.innerHTML = '<p class="roll-preview-placeholder">Toque um dos 3 heróis abaixo para ver vida, dano, passiva e habilidade.</p>';
       ui.btnPrimary.classList.add("is-disabled");
       ui.btnPrimary.textContent = "Selecionar herói";
       return;
     }
+
     const ch = getTemplate(opt.id);
-    const preview = createCombatant(makePick(opt.id, {
-      level: opt.level || 1,
-      rarity: opt.rarity || 1,
-      awakened: opt.awakened || 0,
-    }), "x", "front");
-    ui.rollPreview.hidden = false;
-    ui.rollPreviewBody.innerHTML =
+    const preview = rollPickPreview(opt);
+
+    body.innerHTML =
       "<h2>" + ch.name + "</h2>" +
       '<p class="detail-meta">' + ch.className + " · Nv." + preview.level + " · " +
       starsHtml(preview.rarity) + " · " + awakenedLabel(preview.awakened) + "</p>" +
-      "<ul class='detail-stats'>" +
+      '<ul class="detail-stats">' +
       [["Vida", preview.maxHp], ["Dano", preview.damage], ["Defesa", preview.defense],
         ["Velocidade", preview.speed], ["Crit %", Math.round(preview.critChance * 100) + "%"]]
         .map(function (r) { return "<li><span>" + r[0] + "</span><strong>" + r[1] + "</strong></li>"; })
         .join("") +
       "</ul>" +
-      '<div class="detail-abilities"><div><span class="ability-tag">Passiva</span><strong>' +
-      preview.passiveName + "</strong><p>" + preview.passiveDesc +
-      '</p></div><div><span class="ability-tag skill">Habilidade</span><strong>' +
-      preview.skill.name + " (" + preview.skill.manaCost + " mana)</strong><p>" +
-      preview.skillDesc + "</p></div></div>";
+      '<div class="detail-abilities">' +
+      "<div><span class=\"ability-tag\">Passiva</span><strong>" + preview.passiveName +
+      "</strong><p>" + preview.passiveDesc + "</p></div>" +
+      "<div><span class=\"ability-tag skill\">Habilidade</span><strong>" + preview.skill.name +
+      " (" + preview.skill.manaCost + " mana)</strong><p>" + preview.skillDesc + "</p></div>" +
+      "</div>";
+
     ui.btnPrimary.classList.remove("is-disabled");
     ui.btnPrimary.textContent = "Confirmar " + ch.name;
   }
