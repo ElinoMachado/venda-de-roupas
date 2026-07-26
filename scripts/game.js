@@ -1,167 +1,97 @@
 (() => {
   "use strict";
 
-  /* Garante CSS mesmo se o <link> for bloqueado pelo preview */
   (function ensureStyles() {
     if (document.getElementById("arena-inline-css")) return;
-    const probe = document.createElement("div");
-    probe.className = "app";
-    probe.style.position = "absolute";
-    probe.style.visibility = "hidden";
-    document.body.appendChild(probe);
-    const styled = getComputedStyle(probe).minHeight !== "0px";
-    probe.remove();
-    if (styled) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "/styles/style.css?v=7";
-    document.head.appendChild(link);
+    fetch("/styles/style.css?v=10")
+      .then(function (r) { return r.text(); })
+      .then(function (css) {
+        if (document.getElementById("arena-inline-css")) return;
+        var s = document.createElement("style");
+        s.id = "arena-inline-css";
+        s.textContent = css;
+        document.head.appendChild(s);
+      })
+      .catch(function () {});
   })();
 
-  /* ========== Bônus de raridade por classe (por estrela) ========== */
+  const SLOT_ORDER = ["front", "back0", "back1"];
+  const SLOT_LABELS = { front: "Frente", back0: "Trás 1", back1: "Trás 2" };
+
   const RARITY_BONUS = {
-    tank: {
-      hp: 0.5,
-      defense: 0.5,
-      damage: 0.2,
-      speed: 0.05,
-      critChance: 0.02,
-      critDamage: 0.05,
-      skill: 0.2,
-    },
-    assassin: {
-      hp: 0.2,
-      defense: 0.15,
-      damage: 0.35,
-      speed: 0.12,
-      critChance: 0.08,
-      critDamage: 0.2,
-      skill: 0.4,
-    },
-    mage: {
-      hp: 0.1,
-      defense: 0.05,
-      damage: 0.1,
-      speed: 0.3,
-      critChance: 0.03,
-      critDamage: 0.08,
-      skill: 0.65,
-    },
-    fighter: {
-      hp: 0.35,
-      defense: 0.35,
-      damage: 0.35,
-      speed: 0.1,
-      critChance: 0.05,
-      critDamage: 0.05,
-      skill: 0.3,
-    },
+    tank: { hp: 0.5, defense: 0.5, damage: 0.2, speed: 0.05, critChance: 0.02, critDamage: 0.05, skill: 0.2 },
+    assassin: { hp: 0.2, defense: 0.15, damage: 0.35, speed: 0.12, critChance: 0.08, critDamage: 0.2, skill: 0.4 },
+    mage: { hp: 0.1, defense: 0.05, damage: 0.1, speed: 0.3, critChance: 0.03, critDamage: 0.08, skill: 0.65 },
+    fighter: { hp: 0.35, defense: 0.35, damage: 0.35, speed: 0.1, critChance: 0.05, critDamage: 0.05, skill: 0.3 },
+    support_heal: { hp: 0.15, defense: 0.1, damage: 0.05, speed: 0.18, critChance: 0.02, critDamage: 0.05, skill: 0.55 },
+    support_control: { hp: 0.25, defense: 0.25, damage: 0.12, speed: 0.14, critChance: 0.03, critDamage: 0.08, skill: 0.45 },
   };
 
-  /* ========== Personagens (kits base em 0★ conceitual; estrelas aplicam a tabela) ========== */
   const CHARACTERS = [
     {
-      id: "nyx",
-      name: "Nyx",
-      className: "Assassino",
-      role: "assassin",
-      defaults: { level: 10, rarity: 3, awakened: 0 },
-      color: "#e85d4c",
-      glyph: "⚔",
-      base: {
-        hp: 720,
-        manaMax: 5,
-        staminaMax: 100,
-        damage: 82,
-        defense: 24,
-        critChance: 0.22,
-        critDamage: 1.7,
-        speed: 40,
-      },
-      passiveName: "Lâmina Sombria",
-      skillName: "Golpe Fantasma",
-      skillManaCost: 3,
-      skillBasePower: 2.0,
+      id: "nyx", name: "Nyx", className: "Assassino", role: "assassin",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#e85d4c", glyph: "⚔",
+      base: { hp: 720, manaMax: 5, staminaMax: 100, damage: 82, defense: 24, critChance: 0.22, critDamage: 1.7, speed: 40 },
+      passiveName: "Lâmina Sombria", skillName: "Golpe Fantasma", skillManaCost: 3, skillBasePower: 2.0,
     },
     {
-      id: "gareth",
-      name: "Gareth",
-      className: "Tank",
-      role: "tank",
-      defaults: { level: 10, rarity: 3, awakened: 0 },
-      color: "#3d8f7a",
-      glyph: "🛡",
-      base: {
-        hp: 1280,
-        manaMax: 5,
-        staminaMax: 100,
-        damage: 52,
-        defense: 68,
-        critChance: 0.08,
-        critDamage: 1.35,
-        speed: 20,
-      },
-      passiveName: "Couraça Pesada",
-      skillName: "Muralha de Ferro",
-      skillManaCost: 3,
-      skillBasePower: 1.3,
+      id: "gareth", name: "Gareth", className: "Tank", role: "tank",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#3d8f7a", glyph: "🛡",
+      base: { hp: 1280, manaMax: 5, staminaMax: 100, damage: 52, defense: 68, critChance: 0.08, critDamage: 1.35, speed: 20 },
+      passiveName: "Couraça Pesada", skillName: "Muralha de Ferro", skillManaCost: 3, skillBasePower: 1.3,
+      kit: "guard",
     },
     {
-      id: "lyra",
-      name: "Lyra",
-      className: "Mago",
-      role: "mage",
-      defaults: { level: 10, rarity: 3, awakened: 0 },
-      color: "#6c8cff",
-      glyph: "✦",
-      base: {
-        hp: 640,
-        manaMax: 5,
-        staminaMax: 100,
-        damage: 70,
-        defense: 20,
-        critChance: 0.14,
-        critDamage: 1.55,
-        speed: 46,
-      },
-      passiveName: "Catalisador Arcano",
-      skillName: "Meteoro Arcano",
-      skillManaCost: 3,
-      skillBasePower: 2.4,
+      id: "lyra", name: "Lyra", className: "Mago", role: "mage",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#6c8cff", glyph: "✦",
+      base: { hp: 640, manaMax: 5, staminaMax: 100, damage: 70, defense: 20, critChance: 0.14, critDamage: 1.55, speed: 46 },
+      passiveName: "Catalisador Arcano", skillName: "Meteoro Arcano", skillManaCost: 3, skillBasePower: 2.4,
     },
     {
-      id: "kael",
-      name: "Kael",
-      className: "Lutador",
-      role: "fighter",
-      defaults: { level: 10, rarity: 3, awakened: 0 },
-      color: "#d4a017",
-      glyph: "✊",
-      base: {
-        hp: 960,
-        manaMax: 5,
-        staminaMax: 100,
-        damage: 74,
-        defense: 42,
-        critChance: 0.16,
-        critDamage: 1.5,
-        speed: 30,
-      },
-      passiveName: "Espírito de Luta",
-      skillName: "Rajada de Golpes",
-      skillManaCost: 3,
-      skillBasePower: 1.8,
+      id: "kael", name: "Kael", className: "Lutador", role: "fighter",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#d4a017", glyph: "✊",
+      base: { hp: 960, manaMax: 5, staminaMax: 100, damage: 74, defense: 42, critChance: 0.16, critDamage: 1.5, speed: 30 },
+      passiveName: "Espírito de Luta", skillName: "Rajada de Golpes", skillManaCost: 3, skillBasePower: 1.8,
+      kit: "brawler",
+    },
+    {
+      id: "mira", name: "Mira", className: "Suporte", role: "support_heal",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#7bc67e", glyph: "✚",
+      base: { hp: 680, manaMax: 5, staminaMax: 100, damage: 38, defense: 22, critChance: 0.1, critDamage: 1.35, speed: 34 },
+      passiveName: "Aura Vital", skillName: "Benção Renovadora", skillManaCost: 3, skillBasePower: 1.0,
+    },
+    {
+      id: "nox", name: "Nox", className: "Controle", role: "support_control",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#9b6bff", glyph: "🕸",
+      base: { hp: 860, manaMax: 5, staminaMax: 100, damage: 48, defense: 40, critChance: 0.12, critDamage: 1.4, speed: 28 },
+      passiveName: "Correntes Sombrias", skillName: "Campo de Supressão", skillManaCost: 3, skillBasePower: 1.1,
+    },
+    {
+      id: "rook", name: "Rook", className: "Tank", role: "tank",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#5a8f9c", glyph: "⬡",
+      base: { hp: 1200, manaMax: 5, staminaMax: 100, damage: 48, defense: 72, critChance: 0.08, critDamage: 1.3, speed: 18 },
+      passiveName: "Couraça Viva", skillName: "Fortaleza Espinhosa", skillManaCost: 3, skillBasePower: 1.15,
+      kit: "fortress",
+    },
+    {
+      id: "brutus", name: "Brutus", className: "Lutador", role: "fighter",
+      defaults: { level: 10, rarity: 3, awakened: 0 }, color: "#c45c26", glyph: "⚒",
+      base: { hp: 920, manaMax: 5, staminaMax: 100, damage: 78, defense: 40, critChance: 0.15, critDamage: 1.55, speed: 28 },
+      passiveName: "Quebra-Muralha", skillName: "Golpe Demolidor", skillManaCost: 3, skillBasePower: 2.0,
+      kit: "antitank",
     },
   ];
 
-  function clamp(n, min, max) {
-    return Math.max(min, Math.min(max, n));
-  }
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+  function pct(n) { return Math.round(n * 100) + "%"; }
+  function starsHtml(n) { return "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n)); }
+  function awakenedLabel(n) { return n <= 0 ? "Base" : "Despertar " + n; }
+  function levelMult(level) { return 1 + (level - 1) * 0.04; }
+  function rarityStars(rarity) { return clamp(rarity, 1, 5); }
+  function rarityMult(rate, rarity) { return 1 + rarityStars(rarity) * rate; }
 
   function getTemplate(id) {
-    return CHARACTERS.find(function (c) {
-      return c.id === id;
-    });
+    return CHARACTERS.find(function (c) { return c.id === id; });
   }
 
   function makePick(id, overrides) {
@@ -175,215 +105,186 @@
     };
   }
 
-  /** Nível sobe atributos brutos */
-  function levelMult(level) {
-    return 1 + (level - 1) * 0.04;
-  }
-
-  function rarityStars(rarity) {
-    return clamp(rarity, 1, 5);
-  }
-
-  function rarityMult(rate, rarity) {
-    return 1 + rarityStars(rarity) * rate;
-  }
-
-  function pct(n) {
-    return Math.round(n * 100) + "%";
+  function emptyTeam() {
+    return { front: null, back0: null, back1: null };
   }
 
   function resolveAbilities(template, rarity, awakened) {
     const a = awakened;
     const rb = RARITY_BONUS[template.role] || RARITY_BONUS.fighter;
     const skillMult = rarityMult(rb.skill, rarity);
+    const kit = template.kit || template.role;
 
     if (template.role === "assassin") {
       const passive = {
-        critIgnoreDef: 0.2 + a * 0.05,
-        critBonusDmg: 0.1 + a * 0.05,
+        critIgnoreDef: 0.2 + a * 0.05, critBonusDmg: 0.1 + a * 0.05,
         critStaminaRestore: a >= 1 ? 4 + a * 3 : 0,
-        critBleedTicks: a >= 2 ? a - 1 : 0,
-        critBleedPct: a >= 2 ? 0.03 + a * 0.01 : 0,
+        critBleedTicks: a >= 2 ? a - 1 : 0, critBleedPct: a >= 2 ? 0.03 + a * 0.01 : 0,
         critChanceBonus: a >= 3 ? 0.06 : 0,
       };
       const skill = {
-        name: template.skillName,
-        manaCost: template.skillManaCost,
+        name: template.skillName, manaCost: template.skillManaCost,
         power: template.skillBasePower * skillMult * (1 + a * 0.07),
-        ignoreDef: 0.1 + a * 0.05,
-        bleedPct: 0.06 + a * 0.015,
+        ignoreDef: 0.1 + a * 0.05, bleedPct: 0.06 + a * 0.015,
         bleedTicks: 3 + (a >= 1 ? 1 : 0) + (a >= 3 ? 1 : 0),
-        staminaDrain: a >= 1 ? 8 + a * 6 : 0,
+        staminaDrain: a >= 1 ? 8 + a * 6 : 0, targetMode: "lowest",
       };
-      const extras = [];
-      if (passive.critStaminaRestore) extras.push("crítico restaura " + passive.critStaminaRestore + " estamina");
-      if (passive.critBleedTicks) extras.push("crítico aplica sangramento (" + passive.critBleedTicks + " ticks)");
-      if (passive.critChanceBonus) extras.push("+" + pct(passive.critChanceBonus) + " chance crítica");
-      return {
-        passive: passive,
-        skill: skill,
-        passiveName: template.passiveName,
-        passiveDesc:
-          "Críticos ignoram " +
-          pct(passive.critIgnoreDef) +
-          " da defesa e causam +" +
-          pct(passive.critBonusDmg) +
-          " de dano." +
-          (extras.length ? " Despertar: " + extras.join("; ") + "." : ""),
-        skillDesc:
-          "Consome " +
-          skill.manaCost +
-          " mana. Causa " +
-          Math.round(skill.power * 100) +
-          "% do dano" +
-          (skill.ignoreDef ? " (ignora " + pct(skill.ignoreDef) + " defesa)" : "") +
-          " e sangramento (" +
-          pct(skill.bleedPct) +
-          " do HP máx., " +
-          skill.bleedTicks +
-          " ticks)." +
-          (skill.staminaDrain ? " Extra: drena " + skill.staminaDrain + " estamina." : ""),
+      return pack(template, passive, skill,
+        "Críticos ignoram " + pct(passive.critIgnoreDef) + " da defesa e causam +" + pct(passive.critBonusDmg) + " de dano.",
+        "Causa " + Math.round(skill.power * 100) + "% do dano no alvo de menor vida e aplica sangramento.");
+    }
+
+    if (template.role === "tank" && kit === "fortress") {
+      const passive = {
+        damageReduction: 0.1 + a * 0.03,
+        reflectPct: 0.1 + a * 0.04,
+        regenPerSec: 0.008 + a * 0.003,
+        defenseStackOnHit: 0.03 + a * 0.01,
+        maxDefenseStacks: 4 + a,
+        staminaOnHit: 4 + a * 2,
       };
+      const skill = {
+        name: template.skillName, manaCost: template.skillManaCost,
+        power: template.skillBasePower * skillMult * (1 + a * 0.05),
+        targetMode: "front",
+        selfDefenseBuff: 0.35 + a * 0.08,
+        selfRegenBuff: 0.02 + a * 0.008,
+        reflectBuff: 0.12 + a * 0.04,
+        buffDuration: 6 + a,
+      };
+      return pack(template, passive, skill,
+        "Regenera " + pct(passive.regenPerSec) + " HP/s, reflete " + pct(passive.reflectPct) + " e ganha defesa ao ser atingido.",
+        "Fortalece a si: +" + pct(skill.selfDefenseBuff) + " defesa, regen e reflexo por " + skill.buffDuration + "s.");
     }
 
     if (template.role === "tank") {
       const passive = {
-        damageReduction: 0.14 + a * 0.035,
-        staminaOnHit: 5 + a * 3,
+        damageReduction: 0.14 + a * 0.035, staminaOnHit: 5 + a * 3,
         shieldOnHitPct: a >= 1 ? 0.015 + a * 0.008 : 0,
         reflectPct: a >= 2 ? 0.04 + a * 0.015 : 0,
       };
       const skill = {
-        name: template.skillName,
-        manaCost: template.skillManaCost,
+        name: template.skillName, manaCost: template.skillManaCost,
         power: template.skillBasePower * skillMult * (1 + a * 0.06),
+        targetMode: "front",
         shieldPct: 0.14 + a * 0.03,
         selfHealPct: a >= 1 ? 0.04 + a * 0.015 : 0,
         enemyStaminaDrain: a >= 2 ? 12 + a * 4 : 0,
       };
-      const extras = [];
-      if (passive.shieldOnHitPct) extras.push("ao ser atingido ganha escudo (" + pct(passive.shieldOnHitPct) + " HP)");
-      if (passive.reflectPct) extras.push("reflete " + pct(passive.reflectPct) + " do dano");
-      return {
-        passive: passive,
-        skill: skill,
-        passiveName: template.passiveName,
-        passiveDesc:
-          "Recebe " +
-          pct(passive.damageReduction) +
-          " menos dano. Ao ser atingido, recupera " +
-          passive.staminaOnHit +
-          " de estamina." +
-          (extras.length ? " Despertar: " + extras.join("; ") + "." : ""),
-        skillDesc:
-          "Consome " +
-          skill.manaCost +
-          " mana. Causa " +
-          Math.round(skill.power * 100) +
-          "% do dano e ganha escudo de " +
-          pct(skill.shieldPct) +
-          " do HP máx." +
-          (skill.selfHealPct ? " Cura " + pct(skill.selfHealPct) + " HP." : "") +
-          (skill.enemyStaminaDrain ? " Drena " + skill.enemyStaminaDrain + " estamina do alvo." : ""),
-      };
+      return pack(template, passive, skill,
+        "Recebe " + pct(passive.damageReduction) + " menos dano. Ao ser atingido, recupera estamina.",
+        "Causa " + Math.round(skill.power * 100) + "% no frente e ganha escudo de " + pct(skill.shieldPct) + " HP.");
     }
 
     if (template.role === "mage") {
       const passive = {
-        skillPowerBonus: 0.12 + a * 0.05,
-        basicManaChance: 0.15 + a * 0.05,
+        skillPowerBonus: 0.12 + a * 0.05, basicManaChance: 0.15 + a * 0.05,
         afterSkillStamina: a >= 1 ? 10 + a * 4 : 0,
-        burnOnSkillTicks: a >= 2 ? 1 + a : 0,
-        burnOnSkillPct: a >= 2 ? 0.025 + a * 0.01 : 0,
       };
       const skill = {
-        name: template.skillName,
-        manaCost: template.skillManaCost,
+        name: template.skillName, manaCost: template.skillManaCost,
         power: template.skillBasePower * skillMult * (1 + a * 0.08) * (1 + passive.skillPowerBonus),
-        ignoreDef: 0.2 + a * 0.06,
-        staminaDrain: 10 + a * 5,
-        burnTicks: 2 + (a >= 1 ? 1 : 0) + (a >= 3 ? 1 : 0),
-        burnPct: 0.05 + a * 0.015,
+        targetMode: "back_random",
+        ignoreDef: 0.2 + a * 0.06, staminaDrain: 10 + a * 5,
+        burnTicks: 2 + (a >= 1 ? 1 : 0), burnPct: 0.05 + a * 0.015,
       };
-      const extras = [];
-      if (passive.afterSkillStamina) extras.push("após skill recupera " + passive.afterSkillStamina + " estamina");
-      if (passive.burnOnSkillTicks) extras.push("básicos podem aplicar queimadura");
-      return {
-        passive: passive,
-        skill: skill,
-        passiveName: template.passiveName,
-        passiveDesc:
-          "Habilidades causam +" +
-          pct(passive.skillPowerBonus) +
-          " de dano. Ataques básicos têm " +
-          pct(passive.basicManaChance) +
-          " de chance de gerar +1 mana." +
-          (extras.length ? " Despertar: " + extras.join("; ") + "." : ""),
-        skillDesc:
-          "Consome " +
-          skill.manaCost +
-          " mana. Causa " +
-          Math.round(skill.power * 100) +
-          "% do dano (ignora " +
-          pct(skill.ignoreDef) +
-          " defesa), drena " +
-          skill.staminaDrain +
-          " estamina e aplica queimadura (" +
-          pct(skill.burnPct) +
-          " HP, " +
-          skill.burnTicks +
-          " ticks).",
-      };
+      return pack(template, passive, skill,
+        "Skills +" + pct(passive.skillPowerBonus) + ". Básicos podem gerar +1 mana. Mira a linha de trás.",
+        "Meteoro na linha de trás: " + Math.round(skill.power * 100) + "% + queimadura.");
     }
 
-    // Lutador
+    if (template.role === "fighter" && kit === "antitank") {
+      const passive = {
+        bonusVsTank: 0.45 + a * 0.1,
+        ignoreTankDr: 0.35 + a * 0.1,
+        ignoreDefVsTank: 0.2 + a * 0.05,
+        lowHpDamageBonus: a >= 2 ? 0.12 : 0,
+      };
+      const skill = {
+        name: template.skillName, manaCost: template.skillManaCost,
+        power: template.skillBasePower * skillMult * (1 + a * 0.07),
+        targetMode: "front",
+        antitankPowerBonus: 0.5 + a * 0.12,
+        ignoreDef: 0.15 + a * 0.05,
+        defenseShred: 0.15 + a * 0.05,
+        shredDuration: 5 + a,
+      };
+      return pack(template, passive, skill,
+        "+" + pct(passive.bonusVsTank) + " dano vs Tanks e ignora parte da redução/defesa deles.",
+        "Golpe anti-tank na frente: dano extra vs tank e reduz defesa do alvo.");
+    }
+
+    if (template.role === "fighter") {
+      const passive = {
+        lowHpDamageBonus: 0.18 + a * 0.05, lowHpThreshold: 0.5,
+        lifestealBasic: a >= 1 ? 0.06 + a * 0.02 : 0,
+        stackDamage: a >= 2 ? 0.04 + a * 0.01 : 0, maxStacks: a >= 2 ? 3 + a : 0,
+      };
+      const skill = {
+        name: template.skillName, manaCost: template.skillManaCost,
+        power: template.skillBasePower * skillMult * (1 + a * 0.07),
+        targetMode: "front", hits: 2 + (a >= 1 ? 1 : 0),
+        lifestealPct: 0.1 + a * 0.04,
+        selfBuffDamage: a >= 2 ? 0.12 + a * 0.04 : 0, selfBuffAttacks: a >= 2 ? 2 + a : 0,
+      };
+      return pack(template, passive, skill,
+        "Abaixo de 50% HP causa +" + pct(passive.lowHpDamageBonus) + " de dano. Foca a linha de frente.",
+        "Rajada na frente: " + skill.hits + " golpes e roubo de vida.");
+    }
+
+    if (template.role === "support_heal") {
+      const passive = {
+        auraHealPerSec: 0.004 + a * 0.002,
+        basicHealRatio: 0.9 + a * 0.15,
+        basicDamageRatio: 0.3,
+        allyDamageBuff: a >= 1 ? 0.08 + a * 0.03 : 0,
+      };
+      const skill = {
+        name: template.skillName, manaCost: template.skillManaCost,
+        power: 0,
+        healPower: (1.1 + a * 0.15) * skillMult,
+        healAllRatio: 0.55 + a * 0.08,
+        allyAtkBuff: 0.18 + a * 0.05,
+        allyDefBuff: 0.12 + a * 0.04,
+        buffDuration: 5 + a,
+        targetMode: "ally_heal",
+      };
+      return pack(template, passive, skill,
+        "Frágil. Aura cura aliados (" + pct(passive.auraHealPerSec) + " HP/s). Básico cura o mais ferido.",
+        "Cura forte no aliado mais ferido e aplica buff de ataque/defesa no time.");
+    }
+
+    // support_control
     const passive = {
-      lowHpDamageBonus: 0.18 + a * 0.05,
-      lowHpThreshold: 0.5,
-      lifestealBasic: a >= 1 ? 0.06 + a * 0.02 : 0,
-      stackDamage: a >= 2 ? 0.04 + a * 0.01 : 0,
-      maxStacks: a >= 2 ? 3 + a : 0,
+      damageReduction: 0.08 + a * 0.02,
+      basicSlow: 0.12 + a * 0.03,
+      basicAtkDown: 0.08 + a * 0.02,
+      debuffDuration: 3 + a,
     };
     const skill = {
-      name: template.skillName,
-      manaCost: template.skillManaCost,
-      power: template.skillBasePower * skillMult * (1 + a * 0.07),
-      hits: 2 + (a >= 1 ? 1 : 0),
-      lifestealPct: 0.1 + a * 0.04,
-      selfBuffDamage: a >= 2 ? 0.12 + a * 0.04 : 0,
-      selfBuffAttacks: a >= 2 ? 2 + a : 0,
+      name: template.skillName, manaCost: template.skillManaCost,
+      power: template.skillBasePower * skillMult * (1 + a * 0.05),
+      targetMode: "enemy_all",
+      aoeAtkDown: 0.22 + a * 0.05,
+      aoeSlow: 0.25 + a * 0.05,
+      aoeMark: a >= 2 ? 0.12 + a * 0.03 : 0,
+      debuffDuration: 5 + a,
+      staminaDrainAll: 8 + a * 3,
     };
-    const extras = [];
-    if (passive.lifestealBasic) extras.push("básicos roubam " + pct(passive.lifestealBasic) + " de vida");
-    if (passive.stackDamage) extras.push("acúmulo de +" + pct(passive.stackDamage) + " dano por golpe (máx " + passive.maxStacks + ")");
+    return pack(template, passive, skill,
+      "Mais resistente. Básicos aplicam lentidão e redução de ataque.",
+      "Suprime o time inimigo: menos ataque, lentidão" + (skill.aoeMark ? " e marca de dano" : "") + ".");
+  }
+
+  function pack(template, passive, skill, pDesc, sDesc) {
     return {
-      passive: passive,
-      skill: skill,
-      passiveName: template.passiveName,
-      passiveDesc:
-        "Abaixo de " +
-        pct(passive.lowHpThreshold) +
-        " de vida, causa +" +
-        pct(passive.lowHpDamageBonus) +
-        " de dano." +
-        (extras.length ? " Despertar: " + extras.join("; ") + "." : ""),
-      skillDesc:
-        "Consome " +
-        skill.manaCost +
-        " mana. Desfere " +
-        skill.hits +
-        " golpes totalizando " +
-        Math.round(skill.power * 100) +
-        "% do dano e rouba " +
-        pct(skill.lifestealPct) +
-        " do dano como vida." +
-        (skill.selfBuffDamage
-          ? " Extra: +" + pct(skill.selfBuffDamage) + " dano por " + skill.selfBuffAttacks + " ataques."
-          : ""),
+      passive: passive, skill: skill,
+      passiveName: template.passiveName, skillName: template.skillName,
+      passiveDesc: pDesc, skillDesc: "Consome " + skill.manaCost + " mana. " + sDesc,
     };
   }
 
-  function createCombatant(pick, side) {
+  function createCombatant(pick, team, slot) {
     const template = getTemplate(pick.id);
     const level = clamp(pick.level, 1, 50);
     const rarity = clamp(pick.rarity, 1, 5);
@@ -393,81 +294,82 @@
     const rb = RARITY_BONUS[template.role] || RARITY_BONUS.fighter;
     const abilities = resolveAbilities(template, rarity, awakened);
     const b = template.base;
-
     const maxHp = Math.round(b.hp * lm * rarityMult(rb.hp, rarity));
-    const damage = Math.round(b.damage * lm * rarityMult(rb.damage, rarity));
-    const defense = Math.round(b.defense * lm * rarityMult(rb.defense, rarity));
-    const speed = Math.round(b.speed * speedLm * rarityMult(rb.speed, rarity));
-    const critChance = clamp(
-      b.critChance + rarityStars(rarity) * rb.critChance + (abilities.passive.critChanceBonus || 0),
-      0,
-      0.95
-    );
-    const critDamage = b.critDamage + rarityStars(rarity) * rb.critDamage;
 
     return {
       id: template.id,
-      side: side,
+      uid: team + "-" + slot,
+      team: team,
+      slot: slot,
+      line: slot === "front" ? "front" : "back",
       name: template.name,
       className: template.className,
       role: template.role,
-      level: level,
-      rarity: rarity,
-      awakened: awakened,
-      color: template.color,
-      glyph: template.glyph,
-      passiveName: abilities.passiveName,
-      passiveDesc: abilities.passiveDesc,
+      kit: template.kit || template.role,
+      level: level, rarity: rarity, awakened: awakened,
+      color: template.color, glyph: template.glyph,
+      passiveName: abilities.passiveName, passiveDesc: abilities.passiveDesc,
       passive: abilities.passive,
-      skill: abilities.skill,
-      skillDesc: abilities.skillDesc,
-      maxHp: maxHp,
-      hp: maxHp,
-      manaMax: b.manaMax,
-      mana: 2, // começa perto da skill para o combate ficar mais dinâmico
-      staminaMax: b.staminaMax,
-      stamina: 15,
-      damage: damage,
-      defense: defense,
-      critChance: critChance,
-      critDamage: critDamage,
-      speed: speed,
-      shield: 0,
-      bleed: null,
-      fightStacks: 0,
-      buffAttacksLeft: 0,
-      buffDamageBonus: 0,
+      skill: abilities.skill, skillDesc: abilities.skillDesc,
+      maxHp: maxHp, hp: maxHp,
+      manaMax: b.manaMax, mana: 2,
+      staminaMax: b.staminaMax, stamina: 10 + Math.random() * 20,
+      damage: Math.round(b.damage * lm * rarityMult(rb.damage, rarity)),
+      defense: Math.round(b.defense * lm * rarityMult(rb.defense, rarity)),
+      baseDefense: 0,
+      critChance: clamp(b.critChance + rarityStars(rarity) * rb.critChance + (abilities.passive.critChanceBonus || 0), 0, 0.95),
+      critDamage: b.critDamage + rarityStars(rarity) * rb.critDamage,
+      speed: Math.round(b.speed * speedLm * rarityMult(rb.speed, rarity)),
+      shield: 0, bleed: null, fightStacks: 0,
+      buffAttacksLeft: 0, buffDamageBonus: 0,
+      defenseStacks: 0,
+      atkMul: 1, defMul: 1, speedMul: 1, markMul: 1,
+      buffTimer: 0, debuffTimer: 0, regenBonus: 0, reflectBonus: 0,
       alive: true,
     };
   }
 
-  function starsHtml(n) {
-    return "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n));
-  }
-
-  function awakenedLabel(n) {
-    return n <= 0 ? "Base" : "Despertar " + n;
-  }
-
-  /* ========== Motor de batalha ========== */
+  /* ========== Battle helpers ========== */
   const BASE_STAMINA_PER_SEC = 12;
   const SPEED_TO_STAMINA = 0.55;
   const DEFENSE_FACTOR = 0.45;
 
-  function rollCrit(chance) {
-    return Math.random() < chance;
+  function rollCrit(chance) { return Math.random() < chance; }
+
+  function aliveOf(list) { return list.filter(function (f) { return f.alive; }); }
+
+  function frontOf(team) {
+    return team.find(function (f) { return f.slot === "front" && f.alive; }) || null;
   }
 
-  function calcRawDamage(attacker, defender, power, opts) {
-    opts = opts || {};
-    const ignoreDefense = opts.ignoreDefense || 0;
-    const critBonus = opts.critBonus || 0;
-    const forceCrit = !!opts.forceCrit;
-    const def = defender.defense * (1 - ignoreDefense) * DEFENSE_FACTOR;
-    let dmg = attacker.damage * power - def;
-    const isCrit = forceCrit || rollCrit(attacker.critChance);
-    if (isCrit) dmg *= attacker.critDamage * (1 + critBonus);
-    return { damage: Math.max(1, Math.round(dmg)), isCrit: isCrit };
+  function backlineOf(team) {
+    return team.filter(function (f) { return f.line === "back" && f.alive; });
+  }
+
+  function lowestHp(list) {
+    const a = aliveOf(list);
+    if (!a.length) return null;
+    return a.reduce(function (best, f) { return f.hp < best.hp ? f : best; });
+  }
+
+  function pickBasicTarget(attacker, enemies) {
+    const all = aliveOf(enemies);
+    if (!all.length) return null;
+    const front = frontOf(enemies);
+    const back = backlineOf(enemies);
+
+    if (attacker.role === "assassin") return lowestHp(all);
+
+    if (attacker.role === "mage") {
+      const pool = back.length ? back : all;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // tanks, fighters, supports: front line (fallback any)
+    if (attacker.passive && attacker.passive.canTargetBack) {
+      return all[Math.floor(Math.random() * all.length)];
+    }
+    return front || all[0];
   }
 
   function applyDamage(target, amount) {
@@ -483,27 +385,19 @@
     return { dealt: remaining, absorbed: absorbed };
   }
 
-  function mitigate(defender, dmg) {
-    const dr = defender.passive && defender.passive.damageReduction ? defender.passive.damageReduction : 0;
-    if (!dr) return Math.max(1, Math.round(dmg));
-    return Math.max(1, Math.round(dmg * (1 - dr)));
+  function mitigate(defender, dmg, attacker) {
+    let dr = defender.passive && defender.passive.damageReduction ? defender.passive.damageReduction : 0;
+    if (attacker && attacker.passive && attacker.passive.ignoreTankDr && defender.role === "tank") {
+      dr *= 1 - attacker.passive.ignoreTankDr;
+    }
+    let out = dmg * (1 - dr);
+    out *= defender.markMul || 1;
+    return Math.max(1, Math.round(out));
   }
 
-  function afterBeingHit(defender, attacker, dealt) {
-    const p = defender.passive || {};
-    if (!defender.alive) return;
-    if (p.staminaOnHit) {
-      defender.stamina = clamp(defender.stamina + p.staminaOnHit, 0, defender.staminaMax);
-    }
-    if (p.shieldOnHitPct) {
-      defender.shield += Math.round(defender.maxHp * p.shieldOnHitPct);
-    }
-    if (p.reflectPct && attacker && attacker.alive && dealt > 0) {
-      const reflected = Math.max(1, Math.round(dealt * p.reflectPct));
-      applyDamage(attacker, reflected);
-      return reflected;
-    }
-    return 0;
+  function effectiveDefense(f) {
+    const stackBonus = 1 + (f.defenseStacks || 0) * ((f.passive && f.passive.defenseStackOnHit) || 0);
+    return f.defense * (f.defMul || 1) * stackBonus;
   }
 
   function applyDot(target, pctHp, ticks, type) {
@@ -519,42 +413,16 @@
     }
   }
 
-  function applyBleed(target, pctHp, ticks) {
-    applyDot(target, pctHp, ticks, "bleed");
-  }
-
-  function staminaRate(fighter) {
-    return BASE_STAMINA_PER_SEC + fighter.speed * SPEED_TO_STAMINA;
-  }
-
-  function Battle(fighterA, fighterB, hooks) {
-    this.a = fighterA;
-    this.b = fighterB;
+  function Battle(teamA, teamB, hooks) {
+    this.teamA = teamA;
+    this.teamB = teamB;
+    this.all = teamA.concat(teamB);
     this.hooks = hooks || {};
     this.log = [];
     this.elapsed = 0;
     this.over = false;
-    this.winner = null;
-    this._push(
-      "Luta iniciada: " +
-        fighterA.name +
-        " (Nv." +
-        fighterA.level +
-        " " +
-        starsHtml(fighterA.rarity) +
-        " " +
-        awakenedLabel(fighterA.awakened) +
-        ") vs " +
-        fighterB.name +
-        " (Nv." +
-        fighterB.level +
-        " " +
-        starsHtml(fighterB.rarity) +
-        " " +
-        awakenedLabel(fighterB.awakened) +
-        ")",
-      "system"
-    );
+    this.winnerTeam = null;
+    this._push("Luta 3x3 iniciada!", "system");
   }
 
   Battle.prototype._push = function (text, kind, side) {
@@ -563,8 +431,57 @@
     if (this.hooks.onLog) this.hooks.onLog(entry);
   };
 
-  Battle.prototype._opponent = function (f) {
-    return f.side === "a" ? this.b : this.a;
+  Battle.prototype._enemies = function (f) {
+    return f.team === "a" ? this.teamB : this.teamA;
+  };
+
+  Battle.prototype._allies = function (f) {
+    return f.team === "a" ? this.teamA : this.teamB;
+  };
+
+  Battle.prototype._checkEnd = function () {
+    const aAlive = aliveOf(this.teamA).length;
+    const bAlive = aliveOf(this.teamB).length;
+    if (aAlive === 0 || bAlive === 0) {
+      this.over = true;
+      this.winnerTeam = aAlive > 0 ? "a" : "b";
+      this._push("Time " + this.winnerTeam.toUpperCase() + " venceu!", "system");
+      if (this.hooks.onEnd) this.hooks.onEnd(this.winnerTeam);
+      return true;
+    }
+    return false;
+  };
+
+  Battle.prototype._tickStatus = function (f, dt) {
+    if (!f.alive) return;
+    if (f.buffTimer > 0) {
+      f.buffTimer -= dt;
+      if (f.buffTimer <= 0) {
+        f.atkMul = 1; f.defMul = 1; f.regenBonus = 0; f.reflectBonus = 0; f.buffTimer = 0;
+      }
+    }
+    if (f.debuffTimer > 0) {
+      f.debuffTimer -= dt;
+      if (f.debuffTimer <= 0) {
+        f.atkMul = Math.max(1, f.atkMul);
+        // reset debuff parts carefully
+        if (f.atkMul < 1) f.atkMul = 1;
+        f.speedMul = 1; f.markMul = 1; f.debuffTimer = 0;
+      }
+    }
+    const regen = ((f.passive && f.passive.regenPerSec) || 0) + (f.regenBonus || 0);
+    if (regen > 0) {
+      f.hp = clamp(f.hp + f.maxHp * regen * dt, 0, f.maxHp);
+    }
+    // aura heal from support allies
+    const allies = this._allies(f);
+    for (let i = 0; i < allies.length; i++) {
+      const s = allies[i];
+      if (!s.alive || s.uid === f.uid) continue;
+      if (s.passive && s.passive.auraHealPerSec) {
+        f.hp = clamp(f.hp + f.maxHp * s.passive.auraHealPerSec * dt, 0, f.maxHp);
+      }
+    }
   };
 
   Battle.prototype._tickBleed = function (fighter, dt) {
@@ -574,60 +491,96 @@
       fighter.bleed.acc -= 1;
       fighter.bleed.ticks -= 1;
       const dealt = applyDamage(fighter, fighter.bleed.damagePerTick).dealt;
-      const dotName = fighter.bleed.type === "burn" ? "queimadura" : "sangramento";
-      this._push(fighter.name + " sofre " + dealt + " de " + dotName, "dot", fighter.side);
+      const name = fighter.bleed.type === "burn" ? "queimadura" : "sangramento";
+      this._push(fighter.name + " sofre " + dealt + " de " + name, "dot", fighter.team);
       if (this.hooks.onHit) this.hooks.onHit(fighter, dealt, false, "bleed");
-      if (!fighter.alive) {
-        this._finish(this._opponent(fighter));
-        return;
-      }
+      if (!fighter.alive) { this._checkEnd(); return; }
       if (fighter.bleed.ticks <= 0) fighter.bleed = null;
     }
   };
 
-  Battle.prototype._offenseBonus = function (attacker) {
+  Battle.prototype._afterHit = function (defender, attacker, dealt) {
+    const p = defender.passive || {};
+    if (!defender.alive) return 0;
+    if (p.staminaOnHit) defender.stamina = clamp(defender.stamina + p.staminaOnHit, 0, defender.staminaMax);
+    if (p.shieldOnHitPct) defender.shield += Math.round(defender.maxHp * p.shieldOnHitPct);
+    if (p.defenseStackOnHit) {
+      defender.defenseStacks = clamp((defender.defenseStacks || 0) + 1, 0, p.maxDefenseStacks || 5);
+    }
+    const reflect = (p.reflectPct || 0) + (defender.reflectBonus || 0);
+    if (reflect > 0 && attacker && attacker.alive && dealt > 0) {
+      const reflected = Math.max(1, Math.round(dealt * reflect));
+      applyDamage(attacker, reflected);
+      return reflected;
+    }
+    return 0;
+  };
+
+  Battle.prototype._offenseBonus = function (attacker, target) {
     let bonus = 0;
     const p = attacker.passive || {};
-    if (p.lowHpDamageBonus && attacker.hp / attacker.maxHp <= (p.lowHpThreshold || 0.5)) {
-      bonus += p.lowHpDamageBonus;
-    }
-    if (attacker.buffAttacksLeft > 0 && attacker.buffDamageBonus) {
-      bonus += attacker.buffDamageBonus;
-    }
-    if (attacker.fightStacks > 0 && p.stackDamage) {
-      bonus += attacker.fightStacks * p.stackDamage;
-    }
+    if (p.lowHpDamageBonus && attacker.hp / attacker.maxHp <= (p.lowHpThreshold || 0.5)) bonus += p.lowHpDamageBonus;
+    if (attacker.buffAttacksLeft > 0 && attacker.buffDamageBonus) bonus += attacker.buffDamageBonus;
+    if (attacker.fightStacks > 0 && p.stackDamage) bonus += attacker.fightStacks * p.stackDamage;
+    if (p.bonusVsTank && target && target.role === "tank") bonus += p.bonusVsTank;
+    bonus += (attacker.atkMul || 1) - 1;
     return bonus;
   };
 
-  Battle.prototype._consumeBuffAttack = function (attacker) {
+  Battle.prototype._basicAttack = function (attacker) {
+    const allies = this._allies(attacker);
+    const enemies = this._enemies(attacker);
+    const p = attacker.passive || {};
+
+    // Support heal: heal ally + weak poke
+    if (attacker.role === "support_heal") {
+      const wounded = lowestHp(allies);
+      if (wounded) {
+        const heal = Math.max(1, Math.round(attacker.damage * (p.basicHealRatio || 0.9)));
+        wounded.hp = clamp(wounded.hp + heal, 0, wounded.maxHp);
+        this._push(attacker.name + " cura " + wounded.name + ": +" + heal, "heal", attacker.team);
+        if (this.hooks.onAction) this.hooks.onAction(attacker, "basic");
+        if (this.hooks.onHeal) this.hooks.onHeal(wounded, heal);
+      }
+      const poke = pickBasicTarget(attacker, enemies);
+      if (poke) {
+        const dmg = mitigate(poke, Math.max(1, Math.round(attacker.damage * (p.basicDamageRatio || 0.3))), attacker);
+        const res = applyDamage(poke, dmg);
+        this._push(attacker.name + " acerta " + poke.name + ": " + res.dealt, "hit", attacker.team);
+        if (this.hooks.onHit) this.hooks.onHit(poke, res.dealt, false, "basic");
+        this._afterHit(poke, attacker, res.dealt);
+      }
+      this._checkEnd();
+      return;
+    }
+
+    const target = pickBasicTarget(attacker, enemies);
+    if (!target) return;
+
+    let ignoreDefense = 0;
+    let critBonus = 0;
+    const isCrit = rollCrit(attacker.critChance);
+    if (isCrit && p.critIgnoreDef) {
+      ignoreDefense = p.critIgnoreDef;
+      critBonus = p.critBonusDmg || 0;
+    }
+    if (p.ignoreDefVsTank && target.role === "tank") {
+      ignoreDefense = Math.max(ignoreDefense, p.ignoreDefVsTank);
+    }
+
+    const offense = 1 + this._offenseBonus(attacker, target);
+    const def = effectiveDefense(target) * (1 - ignoreDefense) * DEFENSE_FACTOR;
+    let dmg = attacker.damage * offense - def;
+    if (isCrit) dmg *= attacker.critDamage * (1 + critBonus);
+    dmg = mitigate(target, Math.max(1, Math.round(dmg)), attacker);
+
+    const result = applyDamage(target, dmg);
+    const reflected = this._afterHit(target, attacker, result.dealt);
+
     if (attacker.buffAttacksLeft > 0) {
       attacker.buffAttacksLeft -= 1;
       if (attacker.buffAttacksLeft <= 0) attacker.buffDamageBonus = 0;
     }
-  };
-
-  Battle.prototype._basicAttack = function (attacker) {
-    const defender = this._opponent(attacker);
-    const p = attacker.passive || {};
-    const probeCrit = rollCrit(attacker.critChance);
-    let ignoreDefense = 0;
-    let critBonus = 0;
-    if (probeCrit && p.critIgnoreDef) {
-      ignoreDefense = p.critIgnoreDef;
-      critBonus = p.critBonusDmg || 0;
-    }
-
-    const offense = 1 + this._offenseBonus(attacker);
-    const def = defender.defense * (1 - ignoreDefense) * DEFENSE_FACTOR;
-    let dmg = attacker.damage * offense - def;
-    if (probeCrit) dmg *= attacker.critDamage * (1 + critBonus);
-    dmg = mitigate(defender, Math.max(1, Math.round(dmg)));
-
-    const result = applyDamage(defender, dmg);
-    const reflected = afterBeingHit(defender, attacker, result.dealt);
-    this._consumeBuffAttack(attacker);
-
     if (p.lifestealBasic && result.dealt > 0) {
       attacker.hp = clamp(attacker.hp + Math.round(result.dealt * p.lifestealBasic), 0, attacker.maxHp);
     }
@@ -636,87 +589,145 @@
     }
     if (p.basicManaChance && Math.random() < p.basicManaChance) {
       attacker.mana = clamp(attacker.mana + 1, 0, attacker.manaMax);
-      this._push(attacker.name + " canaliza +1 mana", "info", attacker.side);
     }
-    if (p.burnOnSkillTicks && Math.random() < 0.35) {
-      applyDot(defender, p.burnOnSkillPct, p.burnOnSkillTicks, "burn");
+    if (p.basicSlow || p.basicAtkDown) {
+      target.speedMul = Math.min(target.speedMul || 1, 1 - (p.basicSlow || 0));
+      target.atkMul = Math.min(target.atkMul || 1, 1 - (p.basicAtkDown || 0));
+      target.debuffTimer = Math.max(target.debuffTimer, p.debuffDuration || 3);
     }
-
-    if (probeCrit) {
-      if (p.critStaminaRestore) {
-        attacker.stamina = clamp(attacker.stamina + p.critStaminaRestore, 0, attacker.staminaMax);
-      }
-      if (p.critBleedTicks) {
-        applyBleed(defender, p.critBleedPct, p.critBleedTicks);
-      }
+    if (isCrit) {
+      if (p.critStaminaRestore) attacker.stamina = clamp(attacker.stamina + p.critStaminaRestore, 0, attacker.staminaMax);
+      if (p.critBleedTicks) applyDot(target, p.critBleedPct, p.critBleedTicks, "bleed");
     }
 
-    const critTag = probeCrit ? " CRÍTICO!" : "";
-    const shieldTag = result.absorbed ? " (" + result.absorbed + " bloqueado)" : "";
+    const line = target.line === "front" ? "frente" : "trás";
     this._push(
-      attacker.name + " ataca " + defender.name + ": " + result.dealt + shieldTag + critTag,
-      probeCrit ? "crit" : "hit",
-      attacker.side
+      attacker.name + " ataca " + target.name + " (" + line + "): " + result.dealt +
+        (result.absorbed ? " (" + result.absorbed + " bloqueado)" : "") +
+        (isCrit ? " CRÍTICO!" : ""),
+      isCrit ? "crit" : "hit",
+      attacker.team
     );
     if (reflected) {
-      this._push(defender.name + " reflete " + reflected + " em " + attacker.name, "hit", defender.side);
+      this._push(target.name + " reflete " + reflected, "hit", target.team);
       if (this.hooks.onHit) this.hooks.onHit(attacker, reflected, false, "basic");
     }
     if (this.hooks.onAction) this.hooks.onAction(attacker, "basic");
-    if (this.hooks.onHit) this.hooks.onHit(defender, result.dealt, probeCrit, "basic");
-    if (!attacker.alive) this._finish(defender);
-    else if (!defender.alive) this._finish(attacker);
+    if (this.hooks.onHit) this.hooks.onHit(target, result.dealt, isCrit, "basic");
+    this._checkEnd();
   };
 
   Battle.prototype._castSkill = function (attacker) {
-    const defender = this._opponent(attacker);
     const skill = attacker.skill;
-    const p = attacker.passive || {};
+    const enemies = this._enemies(attacker);
+    const allies = this._allies(attacker);
     attacker.mana -= skill.manaCost;
 
+    // Heal support skill
+    if (skill.targetMode === "ally_heal") {
+      const main = lowestHp(allies);
+      const healMain = main ? Math.round(main.maxHp * 0.22 * skill.healPower) : 0;
+      if (main) {
+        main.hp = clamp(main.hp + healMain, 0, main.maxHp);
+        if (this.hooks.onHeal) this.hooks.onHeal(main, healMain);
+      }
+      let sideHeal = 0;
+      for (let i = 0; i < allies.length; i++) {
+        const al = allies[i];
+        if (!al.alive) continue;
+        const h = Math.round(al.maxHp * skill.healAllRatio * 0.12 * skill.healPower);
+        al.hp = clamp(al.hp + h, 0, al.maxHp);
+        sideHeal += h;
+        al.atkMul = Math.max(al.atkMul, 1 + skill.allyAtkBuff);
+        al.defMul = Math.max(al.defMul, 1 + skill.allyDefBuff);
+        al.buffTimer = Math.max(al.buffTimer, skill.buffDuration);
+      }
+      this._push(
+        attacker.name + " usa " + skill.name + ": cura " + (main ? main.name + " +" + healMain : "") +
+          " / time +" + sideHeal + " + buffs",
+        "skill",
+        attacker.team
+      );
+      if (this.hooks.onAction) this.hooks.onAction(attacker, "skill");
+      return;
+    }
+
+    // Control AoE
+    if (skill.targetMode === "enemy_all") {
+      const targets = aliveOf(enemies);
+      let total = 0;
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        const dmg = mitigate(t, Math.max(1, Math.round(attacker.damage * skill.power * 0.55)), attacker);
+        const res = applyDamage(t, dmg);
+        total += res.dealt;
+        t.atkMul = Math.min(t.atkMul || 1, 1 - skill.aoeAtkDown);
+        t.speedMul = Math.min(t.speedMul || 1, 1 - skill.aoeSlow);
+        if (skill.aoeMark) t.markMul = Math.max(t.markMul || 1, 1 + skill.aoeMark);
+        t.debuffTimer = Math.max(t.debuffTimer, skill.debuffDuration);
+        t.stamina = clamp(t.stamina - (skill.staminaDrainAll || 0), 0, t.staminaMax);
+        if (this.hooks.onHit) this.hooks.onHit(t, res.dealt, false, "skill");
+      }
+      this._push(attacker.name + " usa " + skill.name + ": " + total + " em área + debuffs", "skill", attacker.team);
+      if (this.hooks.onAction) this.hooks.onAction(attacker, "skill");
+      this._checkEnd();
+      return;
+    }
+
+    // Single-target skills
+    let target = null;
+    if (skill.targetMode === "lowest") target = lowestHp(enemies);
+    else if (skill.targetMode === "back_random") {
+      const back = backlineOf(enemies);
+      const pool = back.length ? back : aliveOf(enemies);
+      target = pool[Math.floor(Math.random() * pool.length)];
+    } else {
+      target = frontOf(enemies) || aliveOf(enemies)[0];
+    }
+    if (!target) return;
+
+    let power = skill.power;
+    if (skill.antitankPowerBonus && target.role === "tank") power *= 1 + skill.antitankPowerBonus;
+
     const hits = Math.max(1, skill.hits || 1);
-    const powerPerHit = skill.power / hits;
+    const powerPerHit = power / hits;
     let totalDealt = 0;
-    let anyCrit = false;
     let absorbedTotal = 0;
+    let anyCrit = false;
+    let ignoreDef = skill.ignoreDef || 0;
+    if (attacker.passive && attacker.passive.ignoreDefVsTank && target.role === "tank") {
+      ignoreDef = Math.max(ignoreDef, attacker.passive.ignoreDefVsTank);
+    }
 
     for (let i = 0; i < hits; i++) {
-      if (!defender.alive) break;
-      const offense = 1 + this._offenseBonus(attacker);
-      let raw = calcRawDamage(attacker, defender, powerPerHit * offense, {
-        ignoreDefense: skill.ignoreDef || 0,
-      });
-      let damage = mitigate(defender, raw.damage);
-      const result = applyDamage(defender, damage);
-      totalDealt += result.dealt;
-      absorbedTotal += result.absorbed;
-      if (raw.isCrit) anyCrit = true;
+      if (!target.alive) break;
+      const offense = 1 + this._offenseBonus(attacker, target);
+      const isCrit = rollCrit(attacker.critChance);
+      if (isCrit) anyCrit = true;
+      const def = effectiveDefense(target) * (1 - ignoreDef) * DEFENSE_FACTOR;
+      let dmg = attacker.damage * powerPerHit * offense - def;
+      if (isCrit) dmg *= attacker.critDamage;
+      dmg = mitigate(target, Math.max(1, Math.round(dmg)), attacker);
+      const res = applyDamage(target, dmg);
+      totalDealt += res.dealt;
+      absorbedTotal += res.absorbed;
     }
 
-    const reflected = afterBeingHit(defender, attacker, totalDealt);
-    this._consumeBuffAttack(attacker);
-
-    let extras = [];
-    if (skill.bleedTicks) {
-      applyBleed(defender, skill.bleedPct, skill.bleedTicks);
-      extras.push("sangramento");
-    }
-    if (skill.burnTicks) {
-      applyDot(defender, skill.burnPct, skill.burnTicks, "burn");
-      extras.push("queimadura");
-    }
+    const reflected = this._afterHit(target, attacker, totalDealt);
+    const extras = [];
+    if (skill.bleedTicks) { applyDot(target, skill.bleedPct, skill.bleedTicks, "bleed"); extras.push("sangramento"); }
+    if (skill.burnTicks) { applyDot(target, skill.burnPct, skill.burnTicks, "burn"); extras.push("queimadura"); }
     if (skill.staminaDrain) {
-      defender.stamina = clamp(defender.stamina - skill.staminaDrain, 0, defender.staminaMax);
-      extras.push("drena estamina");
+      target.stamina = clamp(target.stamina - skill.staminaDrain, 0, target.staminaMax);
+      extras.push("drena EST");
     }
     if (skill.enemyStaminaDrain) {
-      defender.stamina = clamp(defender.stamina - skill.enemyStaminaDrain, 0, defender.staminaMax);
-      extras.push("drena estamina");
+      target.stamina = clamp(target.stamina - skill.enemyStaminaDrain, 0, target.staminaMax);
     }
     if (skill.shieldPct) {
-      const shieldAmt = Math.round(attacker.maxHp * skill.shieldPct);
-      attacker.shield += shieldAmt;
-      extras.push("escudo " + shieldAmt);
+      const sh = Math.round(attacker.maxHp * skill.shieldPct);
+      attacker.shield += sh;
+      extras.push("escudo " + sh);
     }
     if (skill.selfHealPct) {
       const heal = Math.round(attacker.maxHp * skill.selfHealPct);
@@ -728,37 +739,40 @@
       attacker.hp = clamp(attacker.hp + heal, 0, attacker.maxHp);
       extras.push("roubo " + heal);
     }
-    if (skill.selfBuffDamage && skill.selfBuffAttacks) {
+    if (skill.selfBuffDamage) {
       attacker.buffDamageBonus = skill.selfBuffDamage;
       attacker.buffAttacksLeft = skill.selfBuffAttacks;
-      extras.push("buff de dano");
+      extras.push("buff");
     }
-    if (p.afterSkillStamina) {
-      attacker.stamina = clamp(attacker.stamina + p.afterSkillStamina, 0, attacker.staminaMax);
+    if (skill.selfDefenseBuff) {
+      attacker.defMul = Math.max(attacker.defMul, 1 + skill.selfDefenseBuff);
+      attacker.regenBonus = Math.max(attacker.regenBonus, skill.selfRegenBuff || 0);
+      attacker.reflectBonus = Math.max(attacker.reflectBonus, skill.reflectBuff || 0);
+      attacker.buffTimer = Math.max(attacker.buffTimer, skill.buffDuration || 5);
+      extras.push("fortaleza");
     }
-    if (hits > 1) extras.unshift(hits + "x golpes");
+    if (skill.defenseShred) {
+      target.defMul = Math.min(target.defMul || 1, 1 - skill.defenseShred);
+      target.debuffTimer = Math.max(target.debuffTimer, skill.shredDuration || 5);
+      extras.push("quebra defesa");
+    }
+    if (hits > 1) extras.unshift(hits + "x");
 
-    const shieldTag = absorbedTotal ? " (" + absorbedTotal + " bloqueado)" : "";
     this._push(
-      attacker.name +
-        " usa " +
-        skill.name +
-        ": " +
-        totalDealt +
-        shieldTag +
+      attacker.name + " usa " + skill.name + " em " + target.name + ": " + totalDealt +
+        (absorbedTotal ? " (" + absorbedTotal + " bloqueado)" : "") +
         (anyCrit ? " CRÍTICO!" : "") +
         (extras.length ? " + " + extras.join(" + ") : ""),
       "skill",
-      attacker.side
+      attacker.team
     );
     if (reflected) {
-      this._push(defender.name + " reflete " + reflected + " em " + attacker.name, "hit", defender.side);
+      this._push(target.name + " reflete " + reflected, "hit", target.team);
       if (this.hooks.onHit) this.hooks.onHit(attacker, reflected, false, "skill");
     }
     if (this.hooks.onAction) this.hooks.onAction(attacker, "skill");
-    if (this.hooks.onHit) this.hooks.onHit(defender, totalDealt, anyCrit, "skill");
-    if (!attacker.alive) this._finish(defender);
-    else if (!defender.alive) this._finish(attacker);
+    if (this.hooks.onHit) this.hooks.onHit(target, totalDealt, anyCrit, "skill");
+    this._checkEnd();
   };
 
   Battle.prototype._act = function (fighter) {
@@ -768,40 +782,32 @@
     else this._basicAttack(fighter);
   };
 
-  Battle.prototype._finish = function (winner) {
-    if (this.over) return;
-    this.over = true;
-    this.winner = winner;
-    const loser = this._opponent(winner);
-    this._push(winner.name + " venceu! " + loser.name + " foi derrotado.", "system");
-    if (this.hooks.onEnd) this.hooks.onEnd(winner, loser);
-  };
-
   Battle.prototype.tick = function (dt) {
     if (this.over) return;
     this.elapsed += dt;
-    const fighters = [this.a, this.b];
-    for (let i = 0; i < fighters.length; i++) {
-      if (!fighters[i].alive) continue;
-      this._tickBleed(fighters[i], dt);
+    const units = this.all;
+    for (let i = 0; i < units.length; i++) {
+      if (!units[i].alive) continue;
+      this._tickStatus(units[i], dt);
+      this._tickBleed(units[i], dt);
       if (this.over) return;
     }
-    for (let i = 0; i < fighters.length; i++) {
-      const f = fighters[i];
+    for (let i = 0; i < units.length; i++) {
+      const f = units[i];
       if (!f.alive || this.over) continue;
-      f.stamina += staminaRate(f) * dt;
+      const rate = (BASE_STAMINA_PER_SEC + f.speed * SPEED_TO_STAMINA) * (f.speedMul || 1);
+      f.stamina += rate * dt;
       if (f.stamina >= f.staminaMax) {
         f.stamina = 0;
         this._act(f);
+        if (this.over) return;
       }
     }
     if (this.hooks.onFrame) this.hooks.onFrame(this);
   };
 
   /* ========== UI ========== */
-  function $(sel) {
-    return document.querySelector(sel);
-  }
+  function $(sel) { return document.querySelector(sel); }
 
   const ui = {
     tagline: $("#screen-tagline"),
@@ -817,7 +823,6 @@
     detailPassiveDesc: $("#detail-passive-desc"),
     detailSkillName: $("#detail-skill-name"),
     detailSkillDesc: $("#detail-skill-desc"),
-    buildPanel: $("#build-panel"),
     buildSlotLabel: $("#build-slot-label"),
     cfgLevel: $("#cfg-level"),
     cfgLevelVal: $("#cfg-level-val"),
@@ -825,10 +830,12 @@
     cfgRarityVal: $("#cfg-rarity-val"),
     cfgAwaken: $("#cfg-awaken"),
     cfgAwakenVal: $("#cfg-awaken-val"),
-    slotA: $("#slot-a"),
-    slotB: $("#slot-b"),
-    slotABody: $("#slot-a-body"),
-    slotBBody: $("#slot-b-body"),
+    slotsFront: $("#slots-front"),
+    slotsBack: $("#slots-back"),
+    tabA: $("#tab-a"),
+    tabB: $("#tab-b"),
+    teamACol: $("#team-a-col"),
+    teamBCol: $("#team-b-col"),
     btnPrimary: $("#btn-primary"),
     btnSwap: $("#btn-swap"),
     log: $("#battle-log"),
@@ -839,13 +846,14 @@
 
   const state = {
     mode: "select",
-    activeSlot: "a",
-    pick: { a: null, b: null },
+    activeTeam: "a",
+    activeSlot: "front",
+    teams: { a: emptyTeam(), b: emptyTeam() },
     battle: null,
     raf: 0,
     lastTs: 0,
-    prevShield: { a: 0, b: 0 },
-    shieldBreakLock: { a: false, b: false },
+    prevShield: {},
+    shieldBreakLock: {},
   };
 
   function showToast(msg) {
@@ -861,134 +869,114 @@
   }
 
   function renderStars(n) {
-    return '<span class="stars" aria-label="' + n + ' estrelas">' + starsHtml(n) + "</span>";
+    return '<span class="stars">' + starsHtml(n) + "</span>";
   }
 
   function activePick() {
-    return state.pick[state.activeSlot];
+    return state.teams[state.activeTeam][state.activeSlot];
+  }
+
+  function allPicks() {
+    const out = [];
+    ["a", "b"].forEach(function (team) {
+      SLOT_ORDER.forEach(function (slot) {
+        const p = state.teams[team][slot];
+        if (p) out.push({ team: team, slot: slot, pick: p });
+      });
+    });
+    return out;
+  }
+
+  function usedIds() {
+    return allPicks().map(function (x) { return x.pick.id; });
+  }
+
+  function teamFull(team) {
+    return SLOT_ORDER.every(function (s) { return !!state.teams[team][s]; });
+  }
+
+  function canFight() {
+    return teamFull("a") && teamFull("b");
   }
 
   function slotCardHtml(pick) {
     const ch = getTemplate(pick.id);
     return (
-      '<div class="slot-card" style="--tone:' +
-      ch.color +
-      '">' +
-      '<span class="avatar-mini">' +
-      ch.glyph +
-      "</span><div><strong>" +
-      ch.name +
-      "</strong><small>Nv." +
-      pick.level +
-      " · " +
-      starsHtml(pick.rarity) +
-      " · " +
-      awakenedLabel(pick.awakened) +
-      "</small></div></div>"
+      '<div class="slot-card" style="--tone:' + ch.color + '">' +
+      '<span class="avatar-mini">' + ch.glyph + "</span><div><strong>" + ch.name +
+      "</strong><small>Nv." + pick.level + " · " + starsHtml(pick.rarity) + " · " +
+      awakenedLabel(pick.awakened) + "</small></div></div>"
     );
   }
 
-  function emptySlotHtml() {
-    return '<span class="slot-empty">Toque um personagem</span>';
-  }
+  function renderFormation() {
+    const team = state.activeTeam;
+    const front = state.teams[team].front;
+    ui.slotsFront.innerHTML =
+      '<button type="button" class="slot' +
+      (state.activeSlot === "front" ? " active" : "") +
+      (front ? " filled" : "") +
+      '" data-slot="front"><span class="slot-label">F</span><div class="slot-body">' +
+      (front ? slotCardHtml(front) : '<span class="slot-empty">Frente</span>') +
+      "</div></button>";
 
-  function canFight() {
-    return !!(state.pick.a && state.pick.b && state.pick.a.id !== state.pick.b.id);
-  }
-
-  function updateSlots() {
-    ui.slotABody.innerHTML = state.pick.a ? slotCardHtml(state.pick.a) : emptySlotHtml();
-    ui.slotBBody.innerHTML = state.pick.b ? slotCardHtml(state.pick.b) : emptySlotHtml();
-    ui.slotA.classList.toggle("active", state.activeSlot === "a" && state.mode === "select");
-    ui.slotB.classList.toggle("active", state.activeSlot === "b" && state.mode === "select");
-    ui.slotA.classList.toggle("filled", !!state.pick.a);
-    ui.slotB.classList.toggle("filled", !!state.pick.b);
-    ui.btnPrimary.classList.toggle("is-disabled", state.mode === "select" && !canFight());
-    ui.btnPrimary.setAttribute("aria-disabled", state.mode === "select" && !canFight() ? "true" : "false");
-    ui.btnSwap.hidden = !(state.pick.a && state.pick.b);
-  }
-
-  function syncBuildControls(pick) {
-    if (!pick) return;
-    ui.buildSlotLabel.textContent = state.activeSlot.toUpperCase();
-    ui.cfgLevel.value = String(pick.level);
-    ui.cfgLevelVal.textContent = String(pick.level);
-    ui.cfgRarityVal.textContent = starsHtml(pick.rarity);
-    ui.cfgAwakenVal.textContent = awakenedLabel(pick.awakened);
-
-    ui.cfgRarity.innerHTML = [1, 2, 3, 4, 5]
-      .map(function (n) {
+    ui.slotsBack.innerHTML = ["back0", "back1"]
+      .map(function (slot, i) {
+        const pick = state.teams[team][slot];
         return (
-          '<button type="button" data-rarity="' +
-          n +
-          '" class="' +
-          (n <= pick.rarity ? "on" : "") +
-          '" aria-label="' +
-          n +
-          ' estrelas">★</button>'
+          '<button type="button" class="slot' +
+          (state.activeSlot === slot ? " active" : "") +
+          (pick ? " filled" : "") +
+          '" data-slot="' + slot + '"><span class="slot-label">T' + (i + 1) +
+          '</span><div class="slot-body">' +
+          (pick ? slotCardHtml(pick) : '<span class="slot-empty">Trás</span>') +
+          "</div></button>"
         );
       })
       .join("");
 
+    ui.tabA.classList.toggle("active", team === "a");
+    ui.tabB.classList.toggle("active", team === "b");
+    ui.btnPrimary.classList.toggle("is-disabled", !canFight());
+    ui.btnPrimary.setAttribute("aria-disabled", canFight() ? "false" : "true");
+  }
+
+  function syncBuildControls(pick) {
+    ui.buildSlotLabel.textContent = SLOT_LABELS[state.activeSlot] + " · Time " + state.activeTeam.toUpperCase();
+    ui.cfgLevel.value = String(pick.level);
+    ui.cfgLevelVal.textContent = String(pick.level);
+    ui.cfgRarityVal.textContent = starsHtml(pick.rarity);
+    ui.cfgAwakenVal.textContent = awakenedLabel(pick.awakened);
+    ui.cfgRarity.innerHTML = [1, 2, 3, 4, 5]
+      .map(function (n) {
+        return '<button type="button" data-rarity="' + n + '" class="' + (n <= pick.rarity ? "on" : "") + '">★</button>';
+      })
+      .join("");
     ui.cfgAwaken.innerHTML = [0, 1, 2, 3]
       .map(function (n) {
-        const label = n === 0 ? "Base" : "D" + n;
-        return (
-          '<button type="button" data-awaken="' +
-          n +
-          '" class="' +
-          (n === pick.awakened ? "on" : "") +
-          '">' +
-          label +
-          "</button>"
-        );
+        return '<button type="button" data-awaken="' + n + '" class="' + (n === pick.awakened ? "on" : "") + '">' +
+          (n === 0 ? "Base" : "D" + n) + "</button>";
       })
       .join("");
   }
 
   function showDetailForPick(pick) {
-    if (!pick) {
-      ui.detail.hidden = true;
-      return;
-    }
+    if (!pick) { ui.detail.hidden = true; return; }
     const template = getTemplate(pick.id);
-    const preview = createCombatant(pick, "preview");
+    const preview = createCombatant(pick, "x", "front");
     ui.detail.hidden = false;
-    // Garante que os controles de build não fiquem atrás do dock
-    window.requestAnimationFrame(function () {
-      if (ui.buildPanel && state.mode === "select") {
-        ui.buildPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-    });
     ui.detailName.textContent = template.name;
     ui.detailMeta.innerHTML =
-      template.className +
-      " · Nv." +
-      pick.level +
-      " · " +
-      renderStars(pick.rarity) +
-      " · " +
-      awakenedLabel(pick.awakened);
-
+      template.className + " · Nv." + pick.level + " · " + renderStars(pick.rarity) + " · " + awakenedLabel(pick.awakened);
     syncBuildControls(pick);
-
     const rows = [
-      ["Vida", preview.maxHp],
-      ["Mana", preview.manaMax],
-      ["Estamina", preview.staminaMax],
-      ["Dano", preview.damage],
-      ["Defesa", preview.defense],
-      ["Crit %", Math.round(preview.critChance * 100) + "%"],
-      ["Dano Crit", preview.critDamage.toFixed(2) + "x"],
-      ["Velocidade", preview.speed],
-      ["Skill", Math.round(preview.skill.power * 100) + "%"],
+      ["Vida", preview.maxHp], ["Dano", preview.damage], ["Defesa", preview.defense],
+      ["Velocidade", preview.speed], ["Crit %", Math.round(preview.critChance * 100) + "%"],
+      ["Skill", preview.skill.power ? Math.round(preview.skill.power * 100) + "%" : "Suporte"],
     ];
     ui.detailStats.innerHTML = rows
-      .map(function (r) {
-        return "<li><span>" + r[0] + "</span><strong>" + r[1] + "</strong></li>";
-      })
+      .map(function (r) { return "<li><span>" + r[0] + "</span><strong>" + r[1] + "</strong></li>"; })
       .join("");
-
     ui.detailPassiveName.textContent = preview.passiveName;
     ui.detailPassiveDesc.textContent = preview.passiveDesc;
     ui.detailSkillName.textContent = preview.skill.name + " (" + preview.skill.manaCost + " mana)";
@@ -996,236 +984,202 @@
   }
 
   function renderRoster() {
+    const used = usedIds();
     ui.roster.innerHTML = CHARACTERS.map(function (ch) {
-      const selected =
-        (state.pick.a && state.pick.a.id === ch.id) ||
-        (state.pick.b && state.pick.b.id === ch.id)
-          ? "selected"
-          : "";
+      const taken = used.indexOf(ch.id) >= 0;
       return (
-        '<button type="button" class="char-card ' +
-        selected +
-        '" data-id="' +
-        ch.id +
-        '" style="--tone:' +
-        ch.color +
-        '">' +
-        '<span class="char-glyph">' +
-        ch.glyph +
-        '</span><span class="char-name">' +
-        ch.name +
-        '</span><span class="char-class">' +
-        ch.className +
-        '</span><span class="char-meta">Ajuste Nv / ★ / Despertar</span>' +
+        '<button type="button" class="char-card' + (taken ? " selected" : "") +
+        '" data-id="' + ch.id + '"' + (taken ? " disabled" : "") +
+        ' style="--tone:' + ch.color + '">' +
+        '<span class="char-glyph">' + ch.glyph + "</span>" +
+        '<span class="char-name">' + ch.name + "</span>" +
+        '<span class="char-class">' + ch.className + "</span>" +
+        '<span class="char-meta">' + (taken ? "Em uso" : "Disponível") + "</span>" +
         renderStars(ch.defaults.rarity) +
         "</button>"
       );
     }).join("");
   }
 
-  function pickCharacter(id) {
-    if (state.pick.a && state.pick.a.id === id) {
-      state.activeSlot = "a";
-      updateSlots();
-      renderRoster();
-      showDetailForPick(state.pick.a);
-      return;
+  function nextEmptySlot(team) {
+    for (let i = 0; i < SLOT_ORDER.length; i++) {
+      if (!state.teams[team][SLOT_ORDER[i]]) return SLOT_ORDER[i];
     }
-    if (state.pick.b && state.pick.b.id === id) {
-      state.activeSlot = "b";
-      updateSlots();
-      renderRoster();
-      showDetailForPick(state.pick.b);
-      return;
-    }
-
-    state.pick[state.activeSlot] = makePick(id);
-    if (state.activeSlot === "a" && !state.pick.b) state.activeSlot = "b";
-    else if (state.activeSlot === "b" && !state.pick.a) state.activeSlot = "a";
-
-    // Se avançou de slot, mostra o personagem recém colocado no slot anterior
-    const placedSlot = state.pick.a && state.pick.a.id === id ? "a" : "b";
-    state.activeSlot = placedSlot;
-    updateSlots();
-    renderRoster();
-    showDetailForPick(state.pick[placedSlot]);
+    return null;
   }
 
-  function updateActiveBuild( partial) {
+  function pickCharacter(id) {
+    if (usedIds().indexOf(id) >= 0) {
+      // focus existing
+      const found = allPicks().find(function (x) { return x.pick.id === id; });
+      if (found) {
+        state.activeTeam = found.team;
+        state.activeSlot = found.slot;
+        renderFormation();
+        renderRoster();
+        showDetailForPick(found.pick);
+      }
+      return;
+    }
+    state.teams[state.activeTeam][state.activeSlot] = makePick(id);
+    const placed = state.activeSlot;
+    const next = nextEmptySlot(state.activeTeam);
+    if (next) state.activeSlot = next;
+    renderFormation();
+    renderRoster();
+    showDetailForPick(state.teams[state.activeTeam][placed]);
+  }
+
+  function updateActiveBuild(partial) {
     const pick = activePick();
     if (!pick) return;
     if (partial.level != null) pick.level = clamp(partial.level, 1, 50);
     if (partial.rarity != null) pick.rarity = clamp(partial.rarity, 1, 5);
     if (partial.awakened != null) pick.awakened = clamp(partial.awakened, 0, 3);
-    updateSlots();
+    renderFormation();
     showDetailForPick(pick);
   }
 
-  function showShieldBubble(side, on) {
-    const sprite = $("#fighter-" + side + "-sprite");
-    const bubble = $("#fighter-" + side + "-shield");
+  function fighterCardHtml(f) {
+    const lineClass = f.line === "front" ? "front-liner" : "back-liner";
+    return (
+      '<article class="fighter side-' + f.team + " " + lineClass + '" id="fighter-' + f.uid + '" data-uid="' + f.uid + '">' +
+      '<div class="fighter-sprite" id="fighter-' + f.uid + '-sprite">' +
+      '<div class="shield-bubble" id="fighter-' + f.uid + '-shield"></div>' +
+      '<div class="avatar" id="fighter-' + f.uid + '-avatar" style="--tone:' + f.color + '">' + f.glyph + "</div>" +
+      '<div class="float-layer" id="fighter-' + f.uid + '-floats"></div>' +
+      '<div class="shield-break" id="fighter-' + f.uid + '-shield-break"></div>' +
+      "</div>" +
+      "<h2>" + f.name + "</h2>" +
+      '<p class="fighter-meta">Nv.' + f.level + " · " + starsHtml(f.rarity) + "</p>" +
+      '<div class="bars">' +
+      '<div class="bar hp"><span id="fighter-' + f.uid + '-hp-fill"></span><em id="fighter-' + f.uid + '-hp-text"></em></div>' +
+      '<div class="bar mana"><span id="fighter-' + f.uid + '-mana-fill"></span><em id="fighter-' + f.uid + '-mana-text"></em></div>' +
+      '<div class="bar stamina"><span id="fighter-' + f.uid + '-stamina-fill"></span><em>EST</em></div>' +
+      "</div>" +
+      '<p class="action-line" id="fighter-' + f.uid + '-action">...</p>' +
+      "</article>"
+    );
+  }
+
+  function renderTeamCol(team, fighters) {
+    const front = fighters.find(function (f) { return f.slot === "front"; });
+    const back = fighters.filter(function (f) { return f.line === "back"; });
+    return (
+      '<div class="line-back">' + back.map(fighterCardHtml).join("") + "</div>" +
+      '<div class="line-front">' + (front ? fighterCardHtml(front) : "") + "</div>"
+    );
+  }
+
+  function updateUnitBars(f) {
+    const uid = f.uid;
+    const hpEl = $("#fighter-" + uid + "-hp-fill");
+    if (!hpEl) return;
+    hpEl.style.width = (f.hp / f.maxHp) * 100 + "%";
+    $("#fighter-" + uid + "-mana-fill").style.width = (f.mana / f.manaMax) * 100 + "%";
+    $("#fighter-" + uid + "-stamina-fill").style.width = (f.stamina / f.staminaMax) * 100 + "%";
+    $("#fighter-" + uid + "-hp-text").textContent =
+      Math.ceil(f.hp) + "/" + f.maxHp + (f.shield ? " +" + f.shield : "");
+    $("#fighter-" + uid + "-mana-text").textContent = f.mana + "/" + f.manaMax;
+    const card = $("#fighter-" + uid);
+    if (card) card.classList.toggle("dead", !f.alive);
+    syncShieldVisual(uid, f.shield);
+  }
+
+  function showShieldBubble(uid, on) {
+    const sprite = $("#fighter-" + uid + "-sprite");
+    const bubble = $("#fighter-" + uid + "-shield");
     if (!sprite || !bubble) return;
     sprite.classList.toggle("has-shield", on);
     bubble.classList.toggle("is-on", on);
   }
 
-  function playShieldBreak(side) {
-    const sprite = $("#fighter-" + side + "-sprite");
-    const layer = $("#fighter-" + side + "-shield-break");
-    const bubble = $("#fighter-" + side + "-shield");
+  function playShieldBreak(uid) {
+    const sprite = $("#fighter-" + uid + "-sprite");
+    const layer = $("#fighter-" + uid + "-shield-break");
     if (!sprite || !layer) return;
-
-    state.shieldBreakLock[side] = true;
-    showShieldBubble(side, false);
-
+    state.shieldBreakLock[uid] = true;
+    showShieldBubble(uid, false);
     layer.innerHTML = "";
-    const shards = 12;
-    for (let i = 0; i < shards; i++) {
+    for (let i = 0; i < 10; i++) {
       const shard = document.createElement("span");
       shard.className = "glass-shard";
-      const angle = (Math.PI * 2 * i) / shards + (Math.random() * 0.4 - 0.2);
-      const dist = 30 + Math.random() * 38;
+      const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
+      const dist = 24 + Math.random() * 30;
       shard.style.setProperty("--dx", Math.cos(angle) * dist + "px");
       shard.style.setProperty("--dy", Math.sin(angle) * dist + "px");
-      shard.style.setProperty("--rot", (Math.random() * 240 - 120).toFixed(0) + "deg");
-      shard.style.animationDelay = (Math.random() * 0.04).toFixed(3) + "s";
-      shard.style.width = 8 + Math.random() * 10 + "px";
-      shard.style.height = 11 + Math.random() * 14 + "px";
+      shard.style.setProperty("--rot", (Math.random() * 200 - 100) + "deg");
       layer.appendChild(shard);
     }
-
     sprite.classList.remove("shield-breaking");
     void sprite.offsetWidth;
     sprite.classList.add("shield-breaking");
-    if (bubble) bubble.classList.remove("is-on");
-
     window.setTimeout(function () {
       sprite.classList.remove("shield-breaking");
       layer.innerHTML = "";
-      state.shieldBreakLock[side] = false;
-      // Se ganhou escudo durante a quebra, mostra de novo
-      if (state.battle) {
-        const f = side === "a" ? state.battle.a : state.battle.b;
-        if (f && f.shield > 0) showShieldBubble(side, true);
-      }
-    }, 620);
+      state.shieldBreakLock[uid] = false;
+    }, 600);
   }
 
-  function syncShieldVisual(side, shieldValue) {
-    const sprite = $("#fighter-" + side + "-sprite");
-    if (!sprite) return;
-    const prev = state.prevShield[side] || 0;
+  function syncShieldVisual(uid, shieldValue) {
+    const prev = state.prevShield[uid] || 0;
     const current = Math.max(0, shieldValue || 0);
-
     if (current > 0) {
-      if (!state.shieldBreakLock[side]) showShieldBubble(side, true);
+      if (!state.shieldBreakLock[uid]) showShieldBubble(uid, true);
     } else {
-      showShieldBubble(side, false);
-      if (prev > 0 && !state.shieldBreakLock[side]) playShieldBreak(side);
+      showShieldBubble(uid, false);
+      if (prev > 0 && !state.shieldBreakLock[uid]) playShieldBreak(uid);
     }
-    state.prevShield[side] = current;
+    state.prevShield[uid] = current;
   }
 
-  function setFighterUi(side, combatant) {
-    const avatar = $("#fighter-" + side + "-avatar");
-    avatar.textContent = combatant.glyph;
-    avatar.style.setProperty("--tone", combatant.color);
-    $("#fighter-" + side + "-name").textContent = combatant.name;
-    $("#fighter-" + side + "-meta").innerHTML =
-      "Nv." +
-      combatant.level +
-      " · " +
-      renderStars(combatant.rarity) +
-      "<br>" +
-      awakenedLabel(combatant.awakened);
-    $("#fighter-" + side + "-action").textContent = "Carregando estamina...";
-    state.prevShield[side] = 0;
-    state.shieldBreakLock[side] = false;
-    const sprite = $("#fighter-" + side + "-sprite");
-    if (sprite) {
-      sprite.classList.remove("has-shield", "shield-breaking");
-      const bubble = $("#fighter-" + side + "-shield");
-      if (bubble) bubble.classList.remove("is-on");
-      const breakLayer = $("#fighter-" + side + "-shield-break");
-      if (breakLayer) breakLayer.innerHTML = "";
-    }
-    updateBars(side, combatant);
-  }
-
-  function updateBars(side, f) {
-    $("#fighter-" + side + "-hp-fill").style.width = (f.hp / f.maxHp) * 100 + "%";
-    $("#fighter-" + side + "-mana-fill").style.width = (f.mana / f.manaMax) * 100 + "%";
-    $("#fighter-" + side + "-stamina-fill").style.width = (f.stamina / f.staminaMax) * 100 + "%";
-    $("#fighter-" + side + "-hp-text").textContent =
-      Math.ceil(f.hp) + "/" + f.maxHp + (f.shield ? " +" + f.shield : "");
-    $("#fighter-" + side + "-mana-text").textContent = f.mana + "/" + f.manaMax;
-    syncShieldVisual(side, f.shield);
-  }
-
-  function appendLog(entry) {
-    const row = document.createElement("p");
-    row.className =
-      "log-row " + entry.kind + (entry.side ? " side-" + entry.side : "");
-    row.textContent = entry.text;
-    ui.log.prepend(row);
-    while (ui.log.children.length > 40) ui.log.lastChild.remove();
-  }
-
-  function playAttackMotion(side, kind) {
-    const el = $("#fighter-" + side);
+  function playAttackMotion(unit, kind) {
+    const el = $("#fighter-" + unit.uid);
     if (!el) return;
     el.classList.remove("attacking");
     void el.offsetWidth;
     el.classList.add("attacking");
-    window.setTimeout(function () {
-      el.classList.remove("attacking");
-    }, 360);
-
+    window.setTimeout(function () { el.classList.remove("attacking"); }, 340);
     const layer = $("#slash-layer");
     if (!layer) return;
     const slash = document.createElement("div");
-    slash.className = "slash from-" + side + (kind === "skill" ? " skill" : "");
+    slash.className = "slash from-" + unit.team + (kind === "skill" ? " skill" : "");
     layer.appendChild(slash);
-    window.setTimeout(function () {
-      slash.remove();
-    }, 420);
+    window.setTimeout(function () { slash.remove(); }, 420);
   }
 
-  function flashHit(side) {
-    const el = $("#fighter-" + side);
+  function flashHit(unit) {
+    const el = $("#fighter-" + unit.uid);
     if (!el) return;
     el.classList.remove("hit");
     void el.offsetWidth;
     el.classList.add("hit");
-    window.setTimeout(function () {
-      el.classList.remove("hit");
-    }, 450);
+    window.setTimeout(function () { el.classList.remove("hit"); }, 420);
   }
 
-  function spawnDamageNumber(side, amount, isCrit, kind) {
-    const layer = $("#fighter-" + side + "-floats");
+  function spawnDamageNumber(unit, amount, isCrit, kind) {
+    const layer = $("#fighter-" + unit.uid + "-floats");
     if (!layer || amount <= 0) return;
     const node = document.createElement("span");
-    let cls = "dmg-float";
-    if (kind === "bleed") cls += " bleed";
-    else if (kind === "skill") cls += " skill";
-    if (isCrit) cls += " crit";
-    node.className = cls;
-    node.textContent = (isCrit ? "CRIT " : "-") + amount;
-    const jitter = (Math.random() * 24 - 12).toFixed(1);
-    node.style.left = "calc(50% + " + jitter + "px)";
+    node.className = "dmg-float" + (isCrit ? " crit" : "") + (kind === "skill" ? " skill" : "") + (kind === "bleed" ? " bleed" : "");
+    node.textContent = (kind === "heal" ? "+" : isCrit ? "CRIT " : "-") + amount;
+    if (kind === "heal") node.style.color = "#7dffa0";
     layer.appendChild(node);
-    window.setTimeout(function () {
-      node.remove();
-    }, 900);
+    window.setTimeout(function () { node.remove(); }, 900);
   }
 
-  function setAction(side, kind) {
-    const el = $("#fighter-" + side + "-action");
-    el.textContent = kind === "skill" ? "Habilidade!" : "Ataque básico";
-    el.classList.remove("pulse");
-    void el.offsetWidth;
-    el.classList.add("pulse");
+  function setAction(unit, kind) {
+    const el = $("#fighter-" + unit.uid + "-action");
+    if (!el) return;
+    el.textContent = kind === "skill" ? "Habilidade!" : kind === "heal" ? "Cura" : "Ataque";
+  }
+
+  function appendLog(entry) {
+    const row = document.createElement("p");
+    row.className = "log-row " + entry.kind + (entry.side ? " side-" + entry.side : "");
+    row.textContent = entry.text;
+    ui.log.prepend(row);
+    while (ui.log.children.length > 50) ui.log.lastChild.remove();
   }
 
   function showScreen(mode) {
@@ -1233,13 +1187,12 @@
     ui.select.hidden = mode !== "select";
     ui.battle.hidden = mode !== "battle";
     ui.result.hidden = mode !== "result";
-
     if (mode === "select") {
-      ui.tagline.textContent = "Escolha e configure os lutadores";
+      ui.tagline.textContent = "Monte os times 3x3";
       ui.btnPrimary.textContent = "Iniciar luta";
-      ui.btnSwap.hidden = !(state.pick.a && state.pick.b);
+      ui.btnSwap.hidden = false;
     } else if (mode === "battle") {
-      ui.tagline.textContent = "Combate em andamento";
+      ui.tagline.textContent = "Combate 3x3";
       ui.btnPrimary.textContent = "Pular / Rendição";
       ui.btnSwap.hidden = true;
     } else {
@@ -1256,59 +1209,55 @@
     state.raf = 0;
   }
 
-  function battleSeconds() {
-    return state.battle ? Math.max(1, Math.round(state.battle.elapsed)) : 0;
+  function buildTeam(teamKey) {
+    return SLOT_ORDER.map(function (slot) {
+      return createCombatant(state.teams[teamKey][slot], teamKey, slot);
+    });
   }
 
   function startBattle() {
     if (!canFight()) {
-      showToast("Selecione dois personagens diferentes");
+      showToast("Preencha os 3 slots de cada time");
       return;
     }
-
     try {
-      const a = createCombatant(state.pick.a, "a");
-      const b = createCombatant(state.pick.b, "b");
-
+      const teamA = buildTeam("a");
+      const teamB = buildTeam("b");
+      state.prevShield = {};
+      state.shieldBreakLock = {};
       ui.log.innerHTML = "";
-      setFighterUi("a", a);
-      setFighterUi("b", b);
+      ui.teamACol.innerHTML = renderTeamCol("a", teamA);
+      ui.teamBCol.innerHTML = renderTeamCol("b", teamB);
+      teamA.concat(teamB).forEach(updateUnitBars);
       showScreen("battle");
       window.scrollTo({ top: 0, behavior: "smooth" });
-      showToast(a.name + " vs " + b.name);
+      showToast("Time A vs Time B");
 
-      state.battle = new Battle(a, b, {
+      state.battle = new Battle(teamA, teamB, {
         onLog: appendLog,
         onHit: function (target, damage, isCrit, kind) {
-          flashHit(target.side);
-          spawnDamageNumber(target.side, damage, isCrit, kind);
+          flashHit(target);
+          spawnDamageNumber(target, damage, isCrit, kind);
+        },
+        onHeal: function (target, amount) {
+          spawnDamageNumber(target, amount, false, "heal");
         },
         onAction: function (attacker, kind) {
-          setAction(attacker.side, kind);
-          playAttackMotion(attacker.side, kind);
+          setAction(attacker, kind);
+          playAttackMotion(attacker, kind);
         },
         onFrame: function (battle) {
-          updateBars("a", battle.a);
-          updateBars("b", battle.b);
+          battle.all.forEach(updateUnitBars);
         },
-        onEnd: function (winner, loser) {
+        onEnd: function (winnerTeam) {
           stopBattleLoop();
-          ui.resultName.textContent = winner.name;
+          ui.resultName.textContent = "Time " + winnerTeam.toUpperCase();
           ui.resultSummary.textContent =
-            winner.name +
-            " (Nv." +
-            winner.level +
-            ") derrotou " +
-            loser.name +
-            " em " +
-            battleSeconds() +
-            "s.";
-          // Espera a animação de escudo quebrando (se houver) antes do resultado
-          const delay =
-            state.shieldBreakLock.a || state.shieldBreakLock.b ? 700 : 280;
-          window.setTimeout(function () {
-            showScreen("result");
-          }, delay);
+            "Vitória em " + Math.max(1, Math.round(state.battle.elapsed)) + "s.";
+          const delay = Object.keys(state.shieldBreakLock).some(function (k) {
+            return state.shieldBreakLock[k];
+          }) ? 700 : 400;
+          window.setTimeout(function () { showScreen("result"); }, delay);
         },
       });
 
@@ -1323,28 +1272,19 @@
       state.raf = requestAnimationFrame(loop);
     } catch (err) {
       console.error(err);
-      showToast("Erro ao iniciar luta: " + (err && err.message ? err.message : err));
+      showToast("Erro: " + (err.message || err));
     }
   }
 
   function endEarly() {
     if (!state.battle || state.battle.over) return;
     stopBattleLoop();
-    const a = state.battle.a;
-    const b = state.battle.b;
-    const winner = a.hp / a.maxHp >= b.hp / b.maxHp ? a : b;
-    const loser = winner === a ? b : a;
+    const aHp = state.battle.teamA.reduce(function (s, f) { return s + (f.alive ? f.hp / f.maxHp : 0); }, 0);
+    const bHp = state.battle.teamB.reduce(function (s, f) { return s + (f.alive ? f.hp / f.maxHp : 0); }, 0);
+    const winner = aHp >= bHp ? "a" : "b";
     state.battle.over = true;
-    state.battle.winner = winner;
-    ui.resultName.textContent = winner.name;
-    ui.resultSummary.textContent =
-      "Luta encerrada. " +
-      winner.name +
-      " venceu por vantagem de vida (" +
-      Math.round((winner.hp / winner.maxHp) * 100) +
-      "% vs " +
-      Math.round((loser.hp / loser.maxHp) * 100) +
-      "%).";
+    ui.resultName.textContent = "Time " + winner.toUpperCase();
+    ui.resultSummary.textContent = "Luta encerrada por vantagem de vida.";
     showScreen("result");
   }
 
@@ -1352,82 +1292,93 @@
     stopBattleLoop();
     state.battle = null;
     showScreen("select");
-    updateSlots();
+    renderFormation();
     renderRoster();
-    showDetailForPick(activePick() || state.pick.a || state.pick.b);
-  }
-
-  function onPrimary() {
-    if (state.mode === "select") startBattle();
-    else if (state.mode === "battle") endEarly();
-    else resetToSelect();
+    showDetailForPick(activePick());
   }
 
   function bind() {
     ui.roster.addEventListener("click", function (e) {
       const btn = e.target.closest(".char-card");
-      if (!btn || state.mode !== "select") return;
+      if (!btn || btn.disabled || state.mode !== "select") return;
       pickCharacter(btn.getAttribute("data-id"));
     });
 
-    ui.slotA.addEventListener("click", function () {
-      if (state.mode !== "select") return;
-      state.activeSlot = "a";
-      updateSlots();
-      if (state.pick.a) showDetailForPick(state.pick.a);
+    ui.slotsFront.addEventListener("click", onSlotClick);
+    ui.slotsBack.addEventListener("click", onSlotClick);
+
+    function onSlotClick(e) {
+      const btn = e.target.closest(".slot");
+      if (!btn || state.mode !== "select") return;
+      state.activeSlot = btn.getAttribute("data-slot");
+      renderFormation();
+      const pick = activePick();
+      if (pick) showDetailForPick(pick);
+    }
+
+    ui.tabA.addEventListener("click", function () {
+      state.activeTeam = "a";
+      state.activeSlot = nextEmptySlot("a") || "front";
+      renderFormation();
+      showDetailForPick(activePick());
+      renderRoster();
     });
-    ui.slotB.addEventListener("click", function () {
-      if (state.mode !== "select") return;
-      state.activeSlot = "b";
-      updateSlots();
-      if (state.pick.b) showDetailForPick(state.pick.b);
+    ui.tabB.addEventListener("click", function () {
+      state.activeTeam = "b";
+      state.activeSlot = nextEmptySlot("b") || "front";
+      renderFormation();
+      showDetailForPick(activePick());
+      renderRoster();
     });
 
     ui.btnSwap.addEventListener("click", function () {
-      const tmp = state.pick.a;
-      state.pick.a = state.pick.b;
-      state.pick.b = tmp;
-      updateSlots();
+      const tmp = state.teams.a;
+      state.teams.a = state.teams.b;
+      state.teams.b = tmp;
+      renderFormation();
+      renderRoster();
       showDetailForPick(activePick());
+      showToast("Times trocados");
     });
 
     ui.cfgLevel.addEventListener("input", function () {
       updateActiveBuild({ level: Number(ui.cfgLevel.value) });
     });
-
     ui.cfgRarity.addEventListener("click", function (e) {
       const btn = e.target.closest("button[data-rarity]");
-      if (!btn) return;
-      updateActiveBuild({ rarity: Number(btn.getAttribute("data-rarity")) });
+      if (btn) updateActiveBuild({ rarity: Number(btn.getAttribute("data-rarity")) });
     });
-
     ui.cfgAwaken.addEventListener("click", function (e) {
       const btn = e.target.closest("button[data-awaken]");
-      if (!btn) return;
-      updateActiveBuild({ awakened: Number(btn.getAttribute("data-awaken")) });
+      if (btn) updateActiveBuild({ awakened: Number(btn.getAttribute("data-awaken")) });
     });
 
-    ui.btnPrimary.addEventListener("click", onPrimary);
+    ui.btnPrimary.addEventListener("click", function () {
+      if (state.mode === "select") startBattle();
+      else if (state.mode === "battle") endEarly();
+      else resetToSelect();
+    });
   }
 
   function init() {
-    if (!ui.btnPrimary || !ui.roster) {
-      console.error("Arena RPG: elementos da UI não encontrados");
-      return;
-    }
-    state.pick.a = makePick("nyx", { level: 12, rarity: 4, awakened: 1 });
-    state.pick.b = makePick("gareth", { level: 12, rarity: 4, awakened: 0 });
-    state.activeSlot = "a";
+    // Time A padrão
+    state.teams.a.front = makePick("gareth", { level: 12, rarity: 4, awakened: 1 });
+    state.teams.a.back0 = makePick("lyra", { level: 12, rarity: 4, awakened: 0 });
+    state.teams.a.back1 = makePick("mira", { level: 12, rarity: 3, awakened: 0 });
+    // Time B padrão
+    state.teams.b.front = makePick("rook", { level: 12, rarity: 4, awakened: 1 });
+    state.teams.b.back0 = makePick("nyx", { level: 12, rarity: 4, awakened: 0 });
+    state.teams.b.back1 = makePick("brutus", { level: 12, rarity: 3, awakened: 1 });
+
+    state.activeTeam = "a";
+    state.activeSlot = "front";
     bind();
-    updateSlots();
+    renderFormation();
     renderRoster();
-    showDetailForPick(state.pick.a);
+    showDetailForPick(activePick());
     showScreen("select");
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 })();
