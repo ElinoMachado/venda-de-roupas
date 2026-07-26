@@ -512,6 +512,54 @@ button {
 }
 
 /* Battle — lado a lado */
+.battle-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(50, 40, 30, 0.95), rgba(28, 22, 16, 0.95));
+  font-family: var(--font-display);
+}
+
+.battle-timer-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#battle-timer-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  min-width: 3.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.battle-timer.is-haste {
+  border-color: rgba(240, 120, 70, 0.55);
+  box-shadow: 0 0 18px rgba(224, 90, 40, 0.25);
+  animation: timer-haste-glow 0.9s ease-in-out infinite alternate;
+}
+
+.battle-timer.is-haste #battle-timer-value {
+  color: #ffb086;
+}
+
+.battle-timer-haste {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1a120c;
+  background: linear-gradient(180deg, #ffc089, #e07a3a);
+  border-radius: 999px;
+  padding: 3px 8px;
+  letter-spacing: 0.04em;
+}
+
 .arena {
   display: flex;
   flex-direction: column;
@@ -1586,6 +1634,15 @@ button {
   50% {
     transform: scale(1.08);
     opacity: 1;
+  }
+}
+
+@keyframes timer-haste-glow {
+  from {
+    box-shadow: 0 0 10px rgba(224, 90, 40, 0.18);
+  }
+  to {
+    box-shadow: 0 0 22px rgba(255, 140, 70, 0.4);
   }
 }
 

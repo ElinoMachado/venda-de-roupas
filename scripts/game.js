@@ -895,10 +895,16 @@
     btnPrimary: $("#btn-primary"),
     btnSwap: $("#btn-swap"),
     log: $("#battle-log"),
+    battleTimer: $("#battle-timer"),
+    battleTimerValue: $("#battle-timer-value"),
+    battleTimerHaste: $("#battle-timer-haste"),
     resultName: $("#result-name"),
     resultSummary: $("#result-summary"),
     toast: $("#toast"),
   };
+
+  const HASTE_AFTER_SEC = 30;
+  const HASTE_MULT = 4;
 
   const state = {
     mode: "select",
@@ -910,6 +916,7 @@
     lastTs: 0,
     prevShield: {},
     shieldBreakLock: {},
+    hasteAnnounced: false,
   };
 
   function showToast(msg) {
@@ -922,6 +929,20 @@
       ui.toast.classList.remove("show");
       ui.toast.hidden = true;
     }, 2200);
+  }
+
+  function formatBattleTime(seconds) {
+    const total = Math.max(0, Math.floor(seconds));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m + ":" + String(s).padStart(2, "0");
+  }
+
+  function updateBattleTimer(elapsed, hasted) {
+    if (!ui.battleTimerValue) return;
+    ui.battleTimerValue.textContent = formatBattleTime(elapsed);
+    if (ui.battleTimer) ui.battleTimer.classList.toggle("is-haste", !!hasted);
+    if (ui.battleTimerHaste) ui.battleTimerHaste.hidden = !hasted;
   }
 
   function renderStars(n) {
@@ -1474,10 +1495,12 @@
       const teamB = buildTeam("b");
       state.prevShield = {};
       state.shieldBreakLock = {};
+      state.hasteAnnounced = false;
       ui.log.innerHTML = "";
       ui.teamACol.innerHTML = renderTeamCol("a", teamA);
       ui.teamBCol.innerHTML = renderTeamCol("b", teamB);
       teamA.concat(teamB).forEach(updateUnitBars);
+      updateBattleTimer(0, false);
       showScreen("battle");
       window.scrollTo({ top: 0, behavior: "smooth" });
       showToast("Time A vs Time B");
@@ -1534,9 +1557,16 @@
       state.lastTs = performance.now();
       const loop = function (ts) {
         if (!state.battle || state.battle.over) return;
-        const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
+        const rawDt = Math.min(0.05, (ts - state.lastTs) / 1000);
         state.lastTs = ts;
+        const hasted = state.battle.elapsed >= HASTE_AFTER_SEC;
+        if (hasted && !state.hasteAnnounced) {
+          state.hasteAnnounced = true;
+          showToast("30s! Combate acelerado 4×");
+        }
+        const dt = rawDt * (hasted ? HASTE_MULT : 1);
         state.battle.tick(dt);
+        updateBattleTimer(state.battle.elapsed, hasted);
         state.raf = requestAnimationFrame(loop);
       };
       state.raf = requestAnimationFrame(loop);

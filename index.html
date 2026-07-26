@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=21" />
+  <link rel="stylesheet" href="/styles/style.css?v=22" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -524,6 +524,54 @@ button {
 }
 
 /* Battle — lado a lado */
+.battle-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(50, 40, 30, 0.95), rgba(28, 22, 16, 0.95));
+  font-family: var(--font-display);
+}
+
+.battle-timer-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#battle-timer-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  min-width: 3.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.battle-timer.is-haste {
+  border-color: rgba(240, 120, 70, 0.55);
+  box-shadow: 0 0 18px rgba(224, 90, 40, 0.25);
+  animation: timer-haste-glow 0.9s ease-in-out infinite alternate;
+}
+
+.battle-timer.is-haste #battle-timer-value {
+  color: #ffb086;
+}
+
+.battle-timer-haste {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1a120c;
+  background: linear-gradient(180deg, #ffc089, #e07a3a);
+  border-radius: 999px;
+  padding: 3px 8px;
+  letter-spacing: 0.04em;
+}
+
 .arena {
   display: flex;
   flex-direction: column;
@@ -1589,6 +1637,27 @@ button {
   }
 }
 
+@keyframes heal-aura-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes timer-haste-glow {
+  from {
+    box-shadow: 0 0 10px rgba(224, 90, 40, 0.18);
+  }
+  to {
+    box-shadow: 0 0 22px rgba(255, 140, 70, 0.4);
+  }
+}
+
 @keyframes shield-pop {
   0% {
     opacity: 1;
@@ -1736,6 +1805,11 @@ button {
 
     <!-- Batalha -->
     <section id="screen-battle" class="screen screen-battle" hidden>
+      <div class="battle-timer" id="battle-timer" aria-live="polite">
+        <span class="battle-timer-label">Tempo</span>
+        <strong id="battle-timer-value">0:00</strong>
+        <span class="battle-timer-haste" id="battle-timer-haste" hidden>4×</span>
+      </div>
       <div class="arena">
         <div class="arena-stage arena-3v3" id="arena-stage">
           <div class="slash-layer" id="slash-layer" aria-hidden="true"></div>
@@ -1762,12 +1836,12 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=21"></script>
+  <script src="/scripts/game.js?v=22"></script>
   <script>
     // Injeta CSS inline se o link externo falhar no preview
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=21")
+      fetch("/styles/style.css?v=22")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");
