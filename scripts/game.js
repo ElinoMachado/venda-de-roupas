@@ -957,32 +957,33 @@
   function renderFormation() {
     const team = state.activeTeam;
     const front = state.teams[team].front;
+    // Slot é <div> (não <button>) para permitir o ✕ como botão no card
     ui.slotsFront.innerHTML =
-      '<button type="button" class="slot' +
+      '<div class="slot' +
       (state.activeSlot === "front" ? " active" : "") +
       (front ? " filled" : "") +
-      '" data-slot="front">' +
+      '" data-slot="front" role="button" tabindex="0">' +
       (front ? "" : '<span class="slot-label">F</span>') +
       '<div class="slot-body">' +
       (front
         ? slotCardHtml(front, "front")
         : '<span class="slot-empty">Frente (obrigatório)</span>') +
-      "</div></button>";
+      "</div></div>";
 
     ui.slotsBack.innerHTML = ["back0", "back1"]
       .map(function (slot, i) {
         const pick = state.teams[team][slot];
         return (
-          '<button type="button" class="slot' +
+          '<div class="slot' +
           (state.activeSlot === slot ? " active" : "") +
           (pick ? " filled" : "") +
-          '" data-slot="' + slot + '">' +
+          '" data-slot="' + slot + '" role="button" tabindex="0">' +
           (pick ? "" : '<span class="slot-label">T' + (i + 1) + "</span>") +
           '<div class="slot-body">' +
           (pick
             ? slotCardHtml(pick, slot)
             : '<span class="slot-empty">Trás (opcional)</span>') +
-          "</div></button>"
+          "</div></div>"
         );
       })
       .join("");
@@ -1449,6 +1450,16 @@
 
     ui.slotsFront.addEventListener("click", onSlotClick);
     ui.slotsBack.addEventListener("click", onSlotClick);
+    ui.slotsFront.addEventListener("keydown", onSlotKey);
+    ui.slotsBack.addEventListener("keydown", onSlotKey);
+
+    function selectFormationSlot(slot) {
+      state.activeSlot = slot;
+      renderFormation();
+      const pick = activePick();
+      if (pick) showDetailForPick(pick);
+      else ui.detail.hidden = true;
+    }
 
     function onSlotClick(e) {
       const removeBtn = e.target.closest(".slot-remove");
@@ -1456,20 +1467,23 @@
         e.preventDefault();
         e.stopPropagation();
         if (state.mode !== "select") return;
-        const slot = removeBtn.getAttribute("data-remove");
-        clearSlot(state.activeTeam, slot);
+        clearSlot(state.activeTeam, removeBtn.getAttribute("data-remove"));
         renderFormation();
         renderRoster();
         showDetailForPick(activePick());
         return;
       }
-      const btn = e.target.closest(".slot");
-      if (!btn || state.mode !== "select") return;
-      state.activeSlot = btn.getAttribute("data-slot");
-      renderFormation();
-      const pick = activePick();
-      if (pick) showDetailForPick(pick);
-      else ui.detail.hidden = true;
+      const slotEl = e.target.closest(".slot");
+      if (!slotEl || state.mode !== "select") return;
+      selectFormationSlot(slotEl.getAttribute("data-slot"));
+    }
+
+    function onSlotKey(e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const slotEl = e.target.closest(".slot");
+      if (!slotEl || state.mode !== "select") return;
+      e.preventDefault();
+      selectFormationSlot(slotEl.getAttribute("data-slot"));
     }
 
     ui.tabA.addEventListener("click", function () {

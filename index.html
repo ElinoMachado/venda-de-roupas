@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=13" />
+  <link rel="stylesheet" href="/styles/style.css?v=14" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -176,7 +176,13 @@ button {
   padding: 8px;
   text-align: left;
   position: relative;
+  cursor: pointer;
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.slot:focus-visible {
+  outline: 2px solid rgba(240, 163, 94, 0.7);
+  outline-offset: 2px;
 }
 
 .slot.active {
@@ -220,27 +226,29 @@ button {
   gap: 8px;
   align-items: center;
   min-height: 56px;
-  padding: 4px 34px 4px 4px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.18);
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 36px;
 }
 
 .slot-card-info {
   min-width: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .slot-remove {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   border: 1px solid rgba(255, 180, 160, 0.4);
   background: rgba(50, 14, 12, 0.88);
   color: #ffc2b8;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   line-height: 1;
   padding: 0;
@@ -261,11 +269,18 @@ button {
   display: block;
   font-family: var(--font-display);
   font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slot-card small {
+  display: block;
   color: var(--muted);
   font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .avatar-mini,
@@ -1539,12 +1554,12 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=13"></script>
+  <script src="/scripts/game.js?v=14"></script>
   <script>
     // Injeta CSS inline se o link externo falhar no preview
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=13")
+      fetch("/styles/style.css?v=14")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");
