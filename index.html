@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=10" />
+  <link rel="stylesheet" href="/styles/style.css?v=11" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -469,83 +469,155 @@ button {
   position: relative;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
-  padding: 10px 6px 12px;
+  padding: 12px 4px 14px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background:
     radial-gradient(120% 80% at 50% 120%, rgba(224, 122, 58, 0.12), transparent 55%),
     linear-gradient(180deg, #2a221b, #1a1511);
   overflow: hidden;
-  min-height: 320px;
+  min-height: 360px;
 }
 
 .arena-vs {
   align-self: center;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--ember-2);
-  opacity: 0.85;
+  opacity: 0.9;
   z-index: 2;
+  text-shadow: 0 0 12px rgba(240, 163, 94, 0.35);
 }
 
+/* Colunas esquerda vs direita: trás por fora, frente avançada ao centro */
 .team-col {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
   min-width: 0;
   z-index: 1;
+  align-items: center;
+  min-height: 320px;
+}
+
+.team-col.team-a {
+  grid-template-areas: "back front";
+}
+
+.team-col.team-b {
+  grid-template-areas: "front back";
 }
 
 .team-col .line-back {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  grid-area: back;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 10px;
+  min-width: 0;
+  height: 100%;
 }
 
 .team-col .line-front {
-  display: grid;
-  grid-template-columns: 1fr;
-  max-width: 120px;
-  margin: 0 auto;
+  grid-area: front;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  position: relative;
+  z-index: 3;
 }
 
-.team-col.team-a .line-back { order: 1; }
-.team-col.team-a .line-front { order: 2; }
-.team-col.team-b .line-front { order: 1; }
-.team-col.team-b .line-back { order: 2; }
+/* Empurra a frente em direção ao VS */
+.team-col.team-a .line-front {
+  transform: translateX(8px);
+}
+
+.team-col.team-b .line-front {
+  transform: translateX(-8px);
+}
+
+.team-col.team-a .line-back {
+  transform: translateX(-2px);
+}
+
+.team-col.team-b .line-back {
+  transform: translateX(2px);
+}
 
 .fighter.dead {
   opacity: 0.35;
   filter: grayscale(0.7);
 }
 
+.fighter.front-liner {
+  padding: 8px 4px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(224, 122, 58, 0.14), rgba(0, 0, 0, 0.18));
+  border: 1px solid rgba(240, 163, 94, 0.28);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  width: 100%;
+}
+
+.fighter.front-liner .fighter-sprite {
+  width: 84px;
+  height: 84px;
+}
+
 .fighter.front-liner .avatar {
-  width: 64px;
-  height: 64px;
-  font-size: 1.7rem;
+  width: 76px;
+  height: 76px;
+  font-size: 2rem;
+  border-radius: 18px;
+}
+
+.fighter.front-liner h2 {
+  font-size: 0.95rem !important;
+}
+
+.fighter.front-liner .fighter-meta {
+  font-size: 0.62rem !important;
+}
+
+.fighter.front-liner .bar {
+  height: 12px;
+}
+
+.fighter.back-liner {
+  opacity: 0.96;
+  transform: scale(0.92);
+  transform-origin: center;
+}
+
+.team-col.team-a .fighter.back-liner {
+  transform-origin: right center;
+}
+
+.team-col.team-b .fighter.back-liner {
+  transform-origin: left center;
 }
 
 .fighter.back-liner .fighter-sprite {
-  width: 58px;
-  height: 58px;
+  width: 54px;
+  height: 54px;
 }
 
 .fighter.back-liner .avatar {
-  width: 52px;
-  height: 52px;
-  font-size: 1.35rem;
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  font-size: 1.25rem;
+  border-radius: 13px;
 }
 
 .fighter h2 {
-  font-size: 0.82rem !important;
+  font-size: 0.78rem !important;
 }
 
 .fighter-meta {
-  font-size: 0.58rem !important;
+  font-size: 0.56rem !important;
 }
 
 .fighter .bars {
@@ -553,15 +625,19 @@ button {
 }
 
 .fighter .bar {
-  height: 11px;
+  height: 10px;
 }
 
 .fighter .bar em {
-  font-size: 0.55rem;
+  font-size: 0.52rem;
 }
 
 .fighter .action-line {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
+}
+
+.fighter.back-liner.dead {
+  transform: scale(0.92);
 }
 
 .slash-layer {
@@ -1269,12 +1345,12 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=10"></script>
+  <script src="/scripts/game.js?v=11"></script>
   <script>
     // Injeta CSS inline se o link externo falhar no preview
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=10")
+      fetch("/styles/style.css?v=11")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");

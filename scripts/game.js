@@ -3,7 +3,7 @@
 
   (function ensureStyles() {
     if (document.getElementById("arena-inline-css")) return;
-    fetch("/styles/style.css?v=10")
+    fetch("/styles/style.css?v=11")
       .then(function (r) { return r.text(); })
       .then(function (css) {
         if (document.getElementById("arena-inline-css")) return;
@@ -440,16 +440,28 @@
   };
 
   Battle.prototype._checkEnd = function () {
-    const aAlive = aliveOf(this.teamA).length;
-    const bAlive = aliveOf(this.teamB).length;
-    if (aAlive === 0 || bAlive === 0) {
-      this.over = true;
-      this.winnerTeam = aAlive > 0 ? "a" : "b";
-      this._push("Time " + this.winnerTeam.toUpperCase() + " venceu!", "system");
-      if (this.hooks.onEnd) this.hooks.onEnd(this.winnerTeam);
-      return true;
+    if (this.over) return true;
+    // Só acaba quando TODOS de um time estão mortos
+    const aAlive = aliveOf(this.teamA);
+    const bAlive = aliveOf(this.teamB);
+    if (aAlive.length > 0 && bAlive.length > 0) return false;
+
+    this.over = true;
+    if (aAlive.length === 0 && bAlive.length === 0) {
+      this.winnerTeam = null;
+      this._push("Empate — ambos os times foram derrotados!", "system");
+    } else {
+      this.winnerTeam = aAlive.length > 0 ? "a" : "b";
+      const survivors = (this.winnerTeam === "a" ? aAlive : bAlive)
+        .map(function (f) { return f.name; })
+        .join(", ");
+      this._push(
+        "Time " + this.winnerTeam.toUpperCase() + " venceu! Sobreviventes: " + survivors,
+        "system"
+      );
     }
-    return false;
+    if (this.hooks.onEnd) this.hooks.onEnd(this.winnerTeam);
+    return true;
   };
 
   Battle.prototype._tickStatus = function (f, dt) {
@@ -1066,8 +1078,12 @@
     const front = fighters.find(function (f) { return f.slot === "front"; });
     const back = fighters.filter(function (f) { return f.line === "back"; });
     return (
-      '<div class="line-back">' + back.map(fighterCardHtml).join("") + "</div>" +
-      '<div class="line-front">' + (front ? fighterCardHtml(front) : "") + "</div>"
+      '<div class="line-back" aria-label="Linha de trás">' +
+      back.map(fighterCardHtml).join("") +
+      "</div>" +
+      '<div class="line-front" aria-label="Linha de frente">' +
+      (front ? fighterCardHtml(front) : "") +
+      "</div>"
     );
   }
 
@@ -1251,9 +1267,22 @@
         },
         onEnd: function (winnerTeam) {
           stopBattleLoop();
-          ui.resultName.textContent = "Time " + winnerTeam.toUpperCase();
-          ui.resultSummary.textContent =
-            "Vitória em " + Math.max(1, Math.round(state.battle.elapsed)) + "s.";
+          if (!winnerTeam) {
+            ui.resultName.textContent = "Empate";
+            ui.resultSummary.textContent =
+              "Os dois times caíram em " + Math.max(1, Math.round(state.battle.elapsed)) + "s.";
+          } else {
+            const survivors = (winnerTeam === "a" ? state.battle.teamA : state.battle.teamB)
+              .filter(function (f) { return f.alive; })
+              .map(function (f) { return f.name; })
+              .join(", ");
+            ui.resultName.textContent = "Time " + winnerTeam.toUpperCase();
+            ui.resultSummary.textContent =
+              "Vitória em " +
+              Math.max(1, Math.round(state.battle.elapsed)) +
+              "s." +
+              (survivors ? " Em pé: " + survivors + "." : "");
+          }
           const delay = Object.keys(state.shieldBreakLock).some(function (k) {
             return state.shieldBreakLock[k];
           }) ? 700 : 400;
@@ -1279,12 +1308,27 @@
   function endEarly() {
     if (!state.battle || state.battle.over) return;
     stopBattleLoop();
-    const aHp = state.battle.teamA.reduce(function (s, f) { return s + (f.alive ? f.hp / f.maxHp : 0); }, 0);
-    const bHp = state.battle.teamB.reduce(function (s, f) { return s + (f.alive ? f.hp / f.maxHp : 0); }, 0);
-    const winner = aHp >= bHp ? "a" : "b";
+    const aAlive = state.battle.teamA.filter(function (f) { return f.alive; });
+    const bAlive = state.battle.teamB.filter(function (f) { return f.alive; });
+    // Rendição: vence quem ainda tem mais membros vivos (empate por HP%)
+    let winner = null;
+    if (aAlive.length !== bAlive.length) {
+      winner = aAlive.length > bAlive.length ? "a" : "b";
+    } else {
+      const aHp = aAlive.reduce(function (s, f) { return s + f.hp / f.maxHp; }, 0);
+      const bHp = bAlive.reduce(function (s, f) { return s + f.hp / f.maxHp; }, 0);
+      if (aHp === bHp) winner = null;
+      else winner = aHp > bHp ? "a" : "b";
+    }
     state.battle.over = true;
-    ui.resultName.textContent = "Time " + winner.toUpperCase();
-    ui.resultSummary.textContent = "Luta encerrada por vantagem de vida.";
+    if (!winner) {
+      ui.resultName.textContent = "Empate";
+      ui.resultSummary.textContent = "Luta encerrada sem vantagem clara.";
+    } else {
+      ui.resultName.textContent = "Time " + winner.toUpperCase();
+      ui.resultSummary.textContent =
+        "Luta encerrada. Vivos — A: " + aAlive.length + " · B: " + bAlive.length + ".";
+    }
     showScreen("result");
   }
 
