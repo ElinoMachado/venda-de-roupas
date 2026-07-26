@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=31" />
+  <link rel="stylesheet" href="styles/style.css?v=32" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -1438,6 +1438,18 @@ button {
   margin: 8px 0 0;
 }
 
+.menu-flow-hint {
+  text-align: center;
+  color: var(--ember-2);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin: 12px 4px 0;
+  padding: 8px 10px;
+  border: 1px dashed rgba(240, 163, 94, 0.35);
+  border-radius: 10px;
+  background: rgba(224, 122, 58, 0.08);
+}
+
 .section-title {
   margin: 0 0 4px;
   font-family: var(--font-display);
@@ -2039,7 +2051,7 @@ button {
       <p class="brand">Arena RPG</p>
       <p class="tagline" id="screen-tagline">Escolha seu caminho</p>
       <p class="xp-badge" id="xp-badge">XP 0</p>
-      <p class="build-badge" id="build-badge" title="Versão desta build">build 31</p>
+      <p class="build-badge" id="build-badge" title="Versão desta build">build 32</p>
     </header>
 
     <!-- Menu -->
@@ -2158,11 +2170,11 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=31"></script>
+  <script src="scripts/game.js?v=32"></script>
   <script>
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=31")
+      fetch("styles/style.css?v=32")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");

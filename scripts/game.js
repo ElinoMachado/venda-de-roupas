@@ -3,7 +3,7 @@
 
   (function ensureStyles() {
     if (document.getElementById("arena-inline-css")) return;
-    fetch("/styles/style.css?v=31")
+    fetch("styles/style.css?v=32")
       .then(function (r) { return r.text(); })
       .then(function (css) {
         if (document.getElementById("arena-inline-css")) return;
