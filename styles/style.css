@@ -202,33 +202,47 @@ button {
   min-height: 56px;
 }
 
-.slot-remove {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 180, 160, 0.28);
-  background: rgba(40, 12, 10, 0.72);
-  color: #ffb4a8;
-  font-size: 0.72rem;
-  line-height: 1;
-  padding: 0;
-  cursor: pointer;
-  z-index: 2;
-}
-
-.slot-remove:hover {
-  background: rgba(120, 30, 24, 0.85);
-  color: #fff;
-}
-
 .slot-card {
+  position: relative;
   display: flex;
   gap: 8px;
   align-items: center;
   min-height: 56px;
+  padding: 4px 34px 4px 4px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.slot-card-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.slot-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 180, 160, 0.4);
+  background: rgba(50, 14, 12, 0.88);
+  color: #ffc2b8;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+}
+
+.slot-remove:hover,
+.slot-remove:focus-visible {
+  background: rgba(150, 36, 28, 0.95);
+  color: #fff;
+  border-color: rgba(255, 200, 180, 0.65);
 }
 
 .slot-card strong {

@@ -921,11 +921,13 @@
     return teamReady("a") && teamReady("b");
   }
 
-  function slotCardHtml(pick) {
+  function slotCardHtml(pick, slot) {
     const ch = getTemplate(pick.id);
     return (
       '<div class="slot-card" style="--tone:' + ch.color + '">' +
-      '<span class="avatar-mini">' + ch.glyph + "</span><div><strong>" + ch.name +
+      '<button type="button" class="slot-remove" data-remove="' + slot +
+      '" aria-label="Remover ' + ch.name + '">✕</button>' +
+      '<span class="avatar-mini">' + ch.glyph + '</span><div class="slot-card-info"><strong>' + ch.name +
       "</strong><small>Nv." + pick.level + " · " + starsHtml(pick.rarity) + " · " +
       awakenedLabel(pick.awakened) + "</small></div></div>"
     );
@@ -959,10 +961,11 @@
       '<button type="button" class="slot' +
       (state.activeSlot === "front" ? " active" : "") +
       (front ? " filled" : "") +
-      '" data-slot="front"><span class="slot-label">F</span><div class="slot-body">' +
+      '" data-slot="front">' +
+      (front ? "" : '<span class="slot-label">F</span>') +
+      '<div class="slot-body">' +
       (front
-        ? slotCardHtml(front) +
-          '<button type="button" class="slot-remove" data-remove="front" aria-label="Remover">✕</button>'
+        ? slotCardHtml(front, "front")
         : '<span class="slot-empty">Frente (obrigatório)</span>') +
       "</div></button>";
 
@@ -973,13 +976,11 @@
           '<button type="button" class="slot' +
           (state.activeSlot === slot ? " active" : "") +
           (pick ? " filled" : "") +
-          '" data-slot="' + slot + '"><span class="slot-label">T' + (i + 1) +
-          '</span><div class="slot-body">' +
+          '" data-slot="' + slot + '">' +
+          (pick ? "" : '<span class="slot-label">T' + (i + 1) + "</span>") +
+          '<div class="slot-body">' +
           (pick
-            ? slotCardHtml(pick) +
-              '<button type="button" class="slot-remove" data-remove="' +
-              slot +
-              '" aria-label="Remover">✕</button>'
+            ? slotCardHtml(pick, slot)
             : '<span class="slot-empty">Trás (opcional)</span>') +
           "</div></button>"
         );
