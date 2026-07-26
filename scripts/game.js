@@ -921,15 +921,21 @@
     return teamReady("a") && teamReady("b");
   }
 
-  function slotCardHtml(pick, slot) {
+  function slotCardHtml(pick) {
     const ch = getTemplate(pick.id);
     return (
       '<div class="slot-card" style="--tone:' + ch.color + '">' +
-      '<button type="button" class="slot-remove" data-remove="' + slot +
-      '" aria-label="Remover ' + ch.name + '">✕</button>' +
-      '<span class="avatar-mini">' + ch.glyph + '</span><div class="slot-card-info"><strong>' + ch.name +
+      '<span class="avatar-mini">' + ch.glyph + "</span>" +
+      "<div><strong>" + ch.name +
       "</strong><small>Nv." + pick.level + " · " + starsHtml(pick.rarity) + " · " +
       awakenedLabel(pick.awakened) + "</small></div></div>"
+    );
+  }
+
+  function slotRemoveHtml(slot, name) {
+    return (
+      '<button type="button" class="slot-remove" data-remove="' + slot +
+      '" aria-label="Remover ' + name + '" title="Remover">×</button>'
     );
   }
 
@@ -957,18 +963,15 @@
   function renderFormation() {
     const team = state.activeTeam;
     const front = state.teams[team].front;
-    // Slot é <div> (não <button>) para permitir o ✕ como botão no card
     ui.slotsFront.innerHTML =
       '<div class="slot' +
       (state.activeSlot === "front" ? " active" : "") +
       (front ? " filled" : "") +
       '" data-slot="front" role="button" tabindex="0">' +
-      (front ? "" : '<span class="slot-label">F</span>') +
-      '<div class="slot-body">' +
       (front
-        ? slotCardHtml(front, "front")
-        : '<span class="slot-empty">Frente (obrigatório)</span>') +
-      "</div></div>";
+        ? slotRemoveHtml("front", getTemplate(front.id).name) + slotCardHtml(front)
+        : '<span class="slot-label">F</span><span class="slot-empty">Frente (obrigatório)</span>') +
+      "</div>";
 
     ui.slotsBack.innerHTML = ["back0", "back1"]
       .map(function (slot, i) {
@@ -978,12 +981,11 @@
           (state.activeSlot === slot ? " active" : "") +
           (pick ? " filled" : "") +
           '" data-slot="' + slot + '" role="button" tabindex="0">' +
-          (pick ? "" : '<span class="slot-label">T' + (i + 1) + "</span>") +
-          '<div class="slot-body">' +
           (pick
-            ? slotCardHtml(pick, slot)
-            : '<span class="slot-empty">Trás (opcional)</span>') +
-          "</div></div>"
+            ? slotRemoveHtml(slot, getTemplate(pick.id).name) + slotCardHtml(pick)
+            : '<span class="slot-label">T' + (i + 1) +
+              '</span><span class="slot-empty">Trás (opcional)</span>') +
+          "</div>"
         );
       })
       .join("");
