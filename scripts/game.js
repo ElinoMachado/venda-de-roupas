@@ -553,6 +553,8 @@
         wounded.hp = clamp(wounded.hp + heal, 0, wounded.maxHp);
         this._push(attacker.name + " cura " + wounded.name + ": +" + heal, "heal", attacker.team);
         if (this.hooks.onHeal) this.hooks.onHeal(wounded, heal);
+        if (this.hooks.onBuff) this.hooks.onBuff(attacker, [wounded]);
+        else if (!poke && this.hooks.onAction) this.hooks.onAction(attacker, "heal", wounded);
       }
       if (poke) {
         const dmg = mitigate(poke, Math.max(1, Math.round(attacker.damage * (p.basicDamageRatio || 0.3))), attacker);
@@ -561,8 +563,6 @@
         if (this.hooks.onAction) this.hooks.onAction(attacker, "basic", poke);
         if (this.hooks.onHit) this.hooks.onHit(poke, res.dealt, false, "basic");
         this._afterHit(poke, attacker, res.dealt);
-      } else if (wounded && this.hooks.onAction) {
-        this.hooks.onAction(attacker, "heal", wounded);
       }
       this._checkEnd();
       return;
@@ -604,10 +604,12 @@
     if (p.basicManaChance && Math.random() < p.basicManaChance) {
       attacker.mana = clamp(attacker.mana + 1, 0, attacker.manaMax);
     }
+    let appliedDebuff = false;
     if (p.basicSlow || p.basicAtkDown) {
       target.speedMul = Math.min(target.speedMul || 1, 1 - (p.basicSlow || 0));
       target.atkMul = Math.min(target.atkMul || 1, 1 - (p.basicAtkDown || 0));
       target.debuffTimer = Math.max(target.debuffTimer, p.debuffDuration || 3);
+      appliedDebuff = true;
     }
     if (isCrit) {
       if (p.critStaminaRestore) attacker.stamina = clamp(attacker.stamina + p.critStaminaRestore, 0, attacker.staminaMax);
@@ -627,6 +629,7 @@
       if (this.hooks.onHit) this.hooks.onHit(attacker, reflected, false, "basic");
     }
     if (this.hooks.onAction) this.hooks.onAction(attacker, "basic", target);
+    if (appliedDebuff && this.hooks.onDebuff) this.hooks.onDebuff(attacker, [target]);
     if (this.hooks.onHit) this.hooks.onHit(target, result.dealt, isCrit, "basic");
     this._checkEnd();
   };
@@ -646,6 +649,7 @@
         if (this.hooks.onHeal) this.hooks.onHeal(main, healMain);
       }
       let sideHeal = 0;
+      const buffTargets = [];
       for (let i = 0; i < allies.length; i++) {
         const al = allies[i];
         if (!al.alive) continue;
@@ -655,6 +659,7 @@
         al.atkMul = Math.max(al.atkMul, 1 + skill.allyAtkBuff);
         al.defMul = Math.max(al.defMul, 1 + skill.allyDefBuff);
         al.buffTimer = Math.max(al.buffTimer, skill.buffDuration);
+        buffTargets.push(al);
       }
       this._push(
         attacker.name + " usa " + skill.name + ": cura " + (main ? main.name + " +" + healMain : "") +
@@ -662,7 +667,8 @@
         "skill",
         attacker.team
       );
-      if (this.hooks.onAction) this.hooks.onAction(attacker, "skill", main || null);
+      if (this.hooks.onBuff) this.hooks.onBuff(attacker, buffTargets);
+      else if (this.hooks.onAction) this.hooks.onAction(attacker, "heal", main || null);
       return;
     }
 
@@ -672,7 +678,6 @@
       let total = 0;
       for (let i = 0; i < targets.length; i++) {
         const t = targets[i];
-        if (this.hooks.onAction) this.hooks.onAction(attacker, "skill", t);
         const dmg = mitigate(t, Math.max(1, Math.round(attacker.damage * skill.power * 0.55)), attacker);
         const res = applyDamage(t, dmg);
         total += res.dealt;
@@ -684,6 +689,8 @@
         if (this.hooks.onHit) this.hooks.onHit(t, res.dealt, false, "skill");
       }
       this._push(attacker.name + " usa " + skill.name + ": " + total + " em área + debuffs", "skill", attacker.team);
+      if (this.hooks.onDebuff) this.hooks.onDebuff(attacker, targets);
+      else if (targets[0] && this.hooks.onAction) this.hooks.onAction(attacker, "skill", targets[0]);
       this._checkEnd();
       return;
     }
@@ -753,10 +760,13 @@
       attacker.hp = clamp(attacker.hp + heal, 0, attacker.maxHp);
       extras.push("roubo " + heal);
     }
+    const selfBuffTargets = [];
+    const debuffTargets = [];
     if (skill.selfBuffDamage) {
       attacker.buffDamageBonus = skill.selfBuffDamage;
       attacker.buffAttacksLeft = skill.selfBuffAttacks;
       extras.push("buff");
+      selfBuffTargets.push(attacker);
     }
     if (skill.selfDefenseBuff) {
       attacker.defMul = Math.max(attacker.defMul, 1 + skill.selfDefenseBuff);
@@ -764,11 +774,13 @@
       attacker.reflectBonus = Math.max(attacker.reflectBonus, skill.reflectBuff || 0);
       attacker.buffTimer = Math.max(attacker.buffTimer, skill.buffDuration || 5);
       extras.push("fortaleza");
+      if (selfBuffTargets.indexOf(attacker) < 0) selfBuffTargets.push(attacker);
     }
     if (skill.defenseShred) {
       target.defMul = Math.min(target.defMul || 1, 1 - skill.defenseShred);
       target.debuffTimer = Math.max(target.debuffTimer, skill.shredDuration || 5);
       extras.push("quebra defesa");
+      debuffTargets.push(target);
     }
     if (hits > 1) extras.unshift(hits + "x");
 
@@ -785,6 +797,8 @@
       if (this.hooks.onHit) this.hooks.onHit(attacker, reflected, false, "skill");
     }
     if (this.hooks.onAction) this.hooks.onAction(attacker, "skill", target);
+    if (selfBuffTargets.length && this.hooks.onBuff) this.hooks.onBuff(attacker, selfBuffTargets);
+    if (debuffTargets.length && this.hooks.onDebuff) this.hooks.onDebuff(attacker, debuffTargets);
     if (this.hooks.onHit) this.hooks.onHit(target, totalDealt, anyCrit, "skill");
     this._checkEnd();
   };
@@ -1203,30 +1217,20 @@
     state.prevShield[uid] = current;
   }
 
-  function playAttackMotion(unit, kind, target) {
+  function pulseFighter(unit, cls, ms) {
     const el = $("#fighter-" + unit.uid);
     if (!el) return;
-    el.classList.remove("attacking");
+    el.classList.remove(cls);
     void el.offsetWidth;
-    el.classList.add("attacking");
-    window.setTimeout(function () { el.classList.remove("attacking"); }, 340);
+    el.classList.add(cls);
+    window.setTimeout(function () { el.classList.remove(cls); }, ms || 520);
+  }
 
-    if (target) {
-      const targetEl = $("#fighter-" + target.uid);
-      if (targetEl) {
-        targetEl.classList.remove("targeted");
-        void targetEl.offsetWidth;
-        targetEl.classList.add("targeted");
-        window.setTimeout(function () { targetEl.classList.remove("targeted"); }, 520);
-      }
-    }
-
+  function playAimedBeam(fromUnit, toUnit, styleKind) {
     const layer = $("#slash-layer");
-    if (!layer) return;
-    const fromEl = $("#fighter-" + unit.uid + "-avatar") || $("#fighter-" + unit.uid + "-sprite");
-    const toEl = target
-      ? ($("#fighter-" + target.uid + "-avatar") || $("#fighter-" + target.uid + "-sprite"))
-      : null;
+    if (!layer || !fromUnit || !toUnit) return;
+    const fromEl = $("#fighter-" + fromUnit.uid + "-avatar") || $("#fighter-" + fromUnit.uid + "-sprite");
+    const toEl = $("#fighter-" + toUnit.uid + "-avatar") || $("#fighter-" + toUnit.uid + "-sprite");
     if (!fromEl || !toEl) return;
 
     const layerRect = layer.getBoundingClientRect();
@@ -1236,25 +1240,22 @@
     const y1 = from.top + from.height / 2 - layerRect.top;
     const x2 = to.left + to.width / 2 - layerRect.left;
     const y2 = to.top + to.height / 2 - layerRect.top;
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const dist = Math.max(36, Math.hypot(dx, dy));
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const dist = Math.max(28, Math.hypot(x2 - x1, y2 - y1));
+    const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
 
     const slash = document.createElement("div");
-    slash.className =
-      "slash aimed from-" + unit.team +
-      (kind === "skill" ? " skill" : "") +
-      (kind === "heal" ? " heal" : "");
+    slash.className = "slash aimed " + styleKind + (styleKind === "buff" || styleKind === "debuff" || styleKind === "heal"
+      ? ""
+      : " from-" + fromUnit.team);
+    if (styleKind === "skill") slash.classList.add("skill");
     slash.style.left = x1 + "px";
     slash.style.top = y1 + "px";
     slash.style.width = dist + "px";
     slash.style.setProperty("--slash-angle", angle + "deg");
     layer.appendChild(slash);
 
-    // Marcador no alvo: “X” de impacto
     const mark = document.createElement("div");
-    mark.className = "slash-mark" + (kind === "skill" ? " skill" : "") + (kind === "heal" ? " heal" : "");
+    mark.className = "slash-mark " + styleKind;
     mark.style.left = x2 + "px";
     mark.style.top = y2 + "px";
     layer.appendChild(mark);
@@ -1263,6 +1264,57 @@
       slash.remove();
       mark.remove();
     }, 480);
+  }
+
+  function playAttackMotion(unit, kind, target) {
+    const el = $("#fighter-" + unit.uid);
+    if (!el) return;
+    el.classList.remove("attacking");
+    void el.offsetWidth;
+    el.classList.add("attacking");
+    window.setTimeout(function () { el.classList.remove("attacking"); }, 340);
+
+    if (!target) return;
+    pulseFighter(target, "targeted", 520);
+    const style = kind === "heal" ? "heal" : kind === "skill" ? "skill" : "basic";
+    playAimedBeam(unit, target, style);
+  }
+
+  function playStatusMotion(source, kind, targets) {
+    const list = (targets || []).filter(Boolean);
+    if (!list.length) return;
+
+    const srcEl = $("#fighter-" + source.uid);
+    if (srcEl) {
+      srcEl.classList.remove("attacking");
+      void srcEl.offsetWidth;
+      srcEl.classList.add("attacking");
+      window.setTimeout(function () { srcEl.classList.remove("attacking"); }, 340);
+    }
+
+    const pulseCls = kind === "buff" ? "buffed" : "debuffed";
+    list.forEach(function (target, i) {
+      window.setTimeout(function () {
+        pulseFighter(target, pulseCls, 560);
+        // Auto-buff: anel no próprio herói; senão linha até o alvo
+        if (target.uid === source.uid) {
+          const avatar = $("#fighter-" + target.uid + "-avatar");
+          if (!avatar) return;
+          const layer = $("#slash-layer");
+          if (!layer) return;
+          const layerRect = layer.getBoundingClientRect();
+          const rect = avatar.getBoundingClientRect();
+          const ring = document.createElement("div");
+          ring.className = "status-ring " + kind;
+          ring.style.left = rect.left + rect.width / 2 - layerRect.left + "px";
+          ring.style.top = rect.top + rect.height / 2 - layerRect.top + "px";
+          layer.appendChild(ring);
+          window.setTimeout(function () { ring.remove(); }, 520);
+          return;
+        }
+        playAimedBeam(source, target, kind);
+      }, i * 70);
+    });
   }
 
   function flashHit(unit) {
@@ -1288,7 +1340,12 @@
   function setAction(unit, kind) {
     const el = $("#fighter-" + unit.uid + "-action");
     if (!el) return;
-    el.textContent = kind === "skill" ? "Habilidade!" : kind === "heal" ? "Cura" : "Ataque";
+    el.textContent =
+      kind === "skill" ? "Habilidade!" :
+      kind === "heal" ? "Cura" :
+      kind === "buff" ? "Buff" :
+      kind === "debuff" ? "Debuff" :
+      "Ataque";
   }
 
   function appendLog(entry) {
@@ -1364,6 +1421,14 @@
         onAction: function (attacker, kind, target) {
           setAction(attacker, kind);
           playAttackMotion(attacker, kind, target || null);
+        },
+        onBuff: function (source, targets) {
+          setAction(source, "buff");
+          playStatusMotion(source, "buff", targets || []);
+        },
+        onDebuff: function (source, targets) {
+          setAction(source, "debuff");
+          playStatusMotion(source, "debuff", targets || []);
         },
         onFrame: function (battle) {
           battle.all.forEach(updateUnitBars);
