@@ -251,22 +251,48 @@ button {
 
 /* Roster */
 .roster {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240, 163, 94, 0.45) transparent;
+}
+
+.roster::-webkit-scrollbar {
+  height: 5px;
+}
+
+.roster::-webkit-scrollbar-thumb {
+  background: rgba(240, 163, 94, 0.4);
+  border-radius: 999px;
 }
 
 .char-card {
+  flex: 0 0 auto;
+  width: 104px;
   border: 1px solid var(--line);
   background: linear-gradient(165deg, #352b22, #241d17);
   border-radius: var(--radius);
-  padding: 10px 8px;
+  padding: 8px 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   align-items: flex-start;
-  min-height: 104px;
+  scroll-snap-align: start;
   transition: transform 0.15s ease, border-color 0.15s;
+}
+
+.char-card .char-glyph {
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  border-radius: 11px;
+  margin-bottom: 2px;
 }
 
 .char-card:active:not(:disabled) {
@@ -287,20 +313,29 @@ button {
 .char-name {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.15rem;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .char-class,
 .char-meta {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .stars {
   color: #e6c35c;
   letter-spacing: 0.04em;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 /* Detail */
