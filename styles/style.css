@@ -141,6 +141,13 @@ button {
   color: var(--ember-2);
 }
 
+.formation-hint {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
 .formation-slots {
   display: grid;
   gap: 8px;

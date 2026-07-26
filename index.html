@@ -153,6 +153,13 @@ button {
   color: var(--ember-2);
 }
 
+.formation-hint {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
 .formation-slots {
   display: grid;
   gap: 8px;
@@ -1419,6 +1426,7 @@ button {
           <p class="formation-label">Linha de trás <span>(até 2, opcional)</span></p>
           <div class="formation-slots back-slots" id="slots-back"></div>
         </div>
+        <p class="formation-hint">Toque 2x no herói para remover</p>
       </div>
 
       <div class="roster" id="roster" role="list"></div>
