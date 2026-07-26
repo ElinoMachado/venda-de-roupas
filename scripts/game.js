@@ -931,6 +931,27 @@
     );
   }
 
+  function promoteFrontIfNeeded(team) {
+    if (state.teams[team].front) return;
+    for (let i = 0; i < 2; i++) {
+      const slot = "back" + i;
+      if (state.teams[team][slot]) {
+        state.teams[team].front = state.teams[team][slot];
+        state.teams[team][slot] = null;
+        return;
+      }
+    }
+  }
+
+  function clearSlot(team, slot) {
+    state.teams[team][slot] = null;
+    if (slot === "front") promoteFrontIfNeeded(team);
+    if (!state.teams[team].front) state.activeSlot = "front";
+    else if (!state.teams[team][state.activeSlot]) {
+      state.activeSlot = nextEmptySlot(team) || "front";
+    }
+  }
+
   function renderFormation() {
     const team = state.activeTeam;
     const front = state.teams[team].front;
@@ -938,7 +959,9 @@
       '<button type="button" class="slot' +
       (state.activeSlot === "front" ? " active" : "") +
       (front ? " filled" : "") +
-      '" data-slot="front"><span class="slot-label">F</span><div class="slot-body">' +
+      '" data-slot="front"' +
+      (front ? ' title="Toque 2x para remover"' : "") +
+      '><span class="slot-label">F</span><div class="slot-body">' +
       (front ? slotCardHtml(front) : '<span class="slot-empty">Frente (obrigatório)</span>') +
       "</div></button>";
 
@@ -949,7 +972,9 @@
           '<button type="button" class="slot' +
           (state.activeSlot === slot ? " active" : "") +
           (pick ? " filled" : "") +
-          '" data-slot="' + slot + '"><span class="slot-label">T' + (i + 1) +
+          '" data-slot="' + slot + '"' +
+          (pick ? ' title="Toque 2x para remover"' : "") +
+          '><span class="slot-label">T' + (i + 1) +
           '</span><div class="slot-body">' +
           (pick ? slotCardHtml(pick) : '<span class="slot-empty">Trás (opcional)</span>') +
           "</div></button>"
@@ -1420,13 +1445,36 @@
     ui.slotsFront.addEventListener("click", onSlotClick);
     ui.slotsBack.addEventListener("click", onSlotClick);
 
+    // Duplo toque no mesmo slot preenchido remove o herói
+    const slotTap = { key: "", t: 0 };
+    const DOUBLE_TAP_MS = 380;
+
     function onSlotClick(e) {
       const btn = e.target.closest(".slot");
       if (!btn || state.mode !== "select") return;
-      state.activeSlot = btn.getAttribute("data-slot");
+      const slot = btn.getAttribute("data-slot");
+      const key = state.activeTeam + ":" + slot;
+      const now = Date.now();
+      const pick = state.teams[state.activeTeam][slot];
+
+      if (pick && slotTap.key === key && now - slotTap.t <= DOUBLE_TAP_MS) {
+        slotTap.key = "";
+        slotTap.t = 0;
+        const name = getTemplate(pick.id).name;
+        clearSlot(state.activeTeam, slot);
+        renderFormation();
+        renderRoster();
+        showDetailForPick(activePick());
+        showToast(name + " removido");
+        return;
+      }
+
+      slotTap.key = key;
+      slotTap.t = now;
+      state.activeSlot = slot;
       renderFormation();
-      const pick = activePick();
-      if (pick) showDetailForPick(pick);
+      const selected = activePick();
+      if (selected) showDetailForPick(selected);
       else ui.detail.hidden = true;
     }
 
