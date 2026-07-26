@@ -197,6 +197,33 @@ button {
   text-align: center;
 }
 
+.slot-body {
+  position: relative;
+  min-height: 56px;
+}
+
+.slot-remove {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 180, 160, 0.28);
+  background: rgba(40, 12, 10, 0.72);
+  color: #ffb4a8;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.slot-remove:hover {
+  background: rgba(120, 30, 24, 0.85);
+  color: #fff;
+}
+
 .slot-card {
   display: flex;
   gap: 8px;
@@ -463,7 +490,14 @@ button {
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background:
-    radial-gradient(120% 80% at 50% 120%, rgba(224, 122, 58, 0.12), transparent 55%),
+    linear-gradient(
+      90deg,
+      rgba(150, 28, 28, 0.55) 0%,
+      rgba(120, 24, 24, 0.22) 38%,
+      rgba(30, 24, 20, 0.1) 50%,
+      rgba(24, 48, 120, 0.22) 62%,
+      rgba(28, 56, 150, 0.55) 100%
+    ),
     linear-gradient(180deg, #2a221b, #1a1511);
   overflow: hidden;
   min-height: 360px;
@@ -491,12 +525,53 @@ button {
   min-height: 320px;
 }
 
+.team-col.team-a,
+.team-col.team-b {
+  position: relative;
+  border-radius: 14px;
+  padding: 8px 4px;
+}
+
 .team-col.team-a {
   grid-template-areas: "back front";
+  background:
+    linear-gradient(90deg, rgba(170, 32, 32, 0.42), rgba(120, 20, 20, 0.1) 75%, transparent);
+  box-shadow: inset 0 0 36px rgba(180, 40, 40, 0.18);
+  border: 1px solid rgba(220, 70, 60, 0.28);
 }
 
 .team-col.team-b {
   grid-template-areas: "front back";
+  background:
+    linear-gradient(270deg, rgba(36, 72, 180, 0.42), rgba(24, 48, 120, 0.1) 75%, transparent);
+  box-shadow: inset 0 0 36px rgba(50, 90, 200, 0.18);
+  border: 1px solid rgba(80, 130, 220, 0.28);
+}
+
+.team-col.team-a::before,
+.team-col.team-b::before {
+  position: absolute;
+  top: 8px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.team-col.team-a::before {
+  left: 10px;
+  color: #ff8a7a;
+  content: "Vermelho";
+}
+
+.team-col.team-b::before {
+  right: 10px;
+  color: #8ab4ff;
+  content: "Azul";
 }
 
 .team-col .line-back {
@@ -638,34 +713,122 @@ button {
 
 .slash {
   position: absolute;
-  top: 18%;
-  width: 46%;
-  height: 4px;
+  height: 5px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, #fff6e0 35%, #f0a35e 70%, transparent);
+  background: linear-gradient(90deg, transparent, #fff6e0 28%, #f0a35e 72%, #ff7a4a);
   box-shadow:
     0 0 10px rgba(255, 220, 150, 0.85),
     0 0 22px rgba(224, 122, 58, 0.55);
   opacity: 0;
-  transform-origin: center;
+  pointer-events: none;
+}
+
+.slash.aimed {
+  margin-top: -2px;
+  transform-origin: left center;
+  animation: slash-aimed 0.42s ease-out forwards;
 }
 
 .slash.from-a {
-  left: 12%;
-  animation: slash-a 0.38s ease-out forwards;
+  background: linear-gradient(90deg, transparent, #ffd0c4 25%, #ff6b55 70%, #ff3b2e);
+  box-shadow:
+    0 0 10px rgba(255, 120, 100, 0.9),
+    0 0 22px rgba(220, 50, 40, 0.55);
 }
 
 .slash.from-b {
-  right: 12%;
-  animation: slash-b 0.38s ease-out forwards;
+  background: linear-gradient(90deg, transparent, #c8dcff 25%, #5a9bff 70%, #2f6dff);
+  box-shadow:
+    0 0 10px rgba(120, 170, 255, 0.9),
+    0 0 22px rgba(50, 100, 220, 0.55);
 }
 
 .slash.skill {
+  height: 7px;
+  filter: saturate(1.2) brightness(1.08);
+}
+
+.slash.heal {
   height: 6px;
-  background: linear-gradient(90deg, transparent, #b8e0ff 30%, #3d8fd1 65%, transparent);
+  background: linear-gradient(90deg, transparent, #c8ffd8 30%, #4fd68a 75%, #2fbf6a) !important;
   box-shadow:
-    0 0 12px rgba(100, 180, 255, 0.9),
-    0 0 24px rgba(61, 143, 209, 0.55);
+    0 0 10px rgba(100, 255, 160, 0.85),
+    0 0 20px rgba(60, 200, 120, 0.5) !important;
+}
+
+.slash-mark {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 230, 180, 0.95);
+  box-shadow:
+    0 0 0 3px rgba(240, 100, 60, 0.35),
+    0 0 18px rgba(255, 180, 80, 0.75);
+  pointer-events: none;
+  animation: slash-mark-pop 0.45s ease-out forwards;
+}
+
+.slash-mark::before,
+.slash-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: #fff4d8;
+  box-shadow: 0 0 8px rgba(255, 220, 140, 0.9);
+}
+
+.slash-mark::before {
+  transform: translate(-50%, -50%) rotate(40deg);
+}
+
+.slash-mark::after {
+  transform: translate(-50%, -50%) rotate(-40deg);
+}
+
+.slash-mark.skill {
+  border-color: rgba(180, 220, 255, 0.95);
+  box-shadow:
+    0 0 0 3px rgba(80, 140, 255, 0.4),
+    0 0 18px rgba(100, 170, 255, 0.8);
+}
+
+.slash-mark.heal {
+  border-color: rgba(160, 255, 190, 0.95);
+  box-shadow:
+    0 0 0 3px rgba(60, 200, 120, 0.4),
+    0 0 18px rgba(90, 230, 150, 0.75);
+}
+
+.slash-mark.heal::before,
+.slash-mark.heal::after {
+  background: #c8ffe0;
+  width: 3px;
+  height: 16px;
+}
+
+.slash-mark.heal::before {
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+
+.slash-mark.heal::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.fighter.targeted {
+  animation: target-pulse 0.5s ease;
+  z-index: 3;
+}
+
+.fighter.targeted .avatar {
+  box-shadow:
+    0 0 0 3px rgba(255, 220, 140, 0.85),
+    0 0 22px rgba(255, 140, 70, 0.65);
 }
 
 .fighter {
@@ -1055,31 +1218,48 @@ button {
   }
 }
 
-@keyframes slash-a {
+@keyframes slash-aimed {
   0% {
     opacity: 0;
-    transform: translateX(-18%) rotate(-18deg) scaleX(0.4);
+    transform: rotate(var(--slash-angle, 0deg)) scaleX(0.12);
   }
-  25% {
+  18% {
     opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    transform: rotate(var(--slash-angle, 0deg)) scaleX(1);
   }
   100% {
     opacity: 0;
-    transform: translateX(55%) rotate(-18deg) scaleX(1.15);
+    transform: rotate(var(--slash-angle, 0deg)) scaleX(1.05);
   }
 }
 
-@keyframes slash-b {
+@keyframes slash-mark-pop {
   0% {
     opacity: 0;
-    transform: translateX(18%) rotate(18deg) scaleX(0.4);
+    transform: scale(0.35);
   }
-  25% {
+  30% {
     opacity: 1;
+    transform: scale(1.15);
   }
   100% {
     opacity: 0;
-    transform: translateX(-55%) rotate(18deg) scaleX(1.15);
+    transform: scale(1.35);
+  }
+}
+
+@keyframes target-pulse {
+  0% {
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(1.35);
+  }
+  100% {
+    filter: brightness(1);
   }
 }
 

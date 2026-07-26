@@ -547,20 +547,22 @@
     // Support heal: heal ally + weak poke
     if (attacker.role === "support_heal") {
       const wounded = lowestHp(allies);
+      const poke = pickBasicTarget(attacker, enemies);
       if (wounded) {
         const heal = Math.max(1, Math.round(attacker.damage * (p.basicHealRatio || 0.9)));
         wounded.hp = clamp(wounded.hp + heal, 0, wounded.maxHp);
         this._push(attacker.name + " cura " + wounded.name + ": +" + heal, "heal", attacker.team);
-        if (this.hooks.onAction) this.hooks.onAction(attacker, "basic");
         if (this.hooks.onHeal) this.hooks.onHeal(wounded, heal);
       }
-      const poke = pickBasicTarget(attacker, enemies);
       if (poke) {
         const dmg = mitigate(poke, Math.max(1, Math.round(attacker.damage * (p.basicDamageRatio || 0.3))), attacker);
         const res = applyDamage(poke, dmg);
         this._push(attacker.name + " acerta " + poke.name + ": " + res.dealt, "hit", attacker.team);
+        if (this.hooks.onAction) this.hooks.onAction(attacker, "basic", poke);
         if (this.hooks.onHit) this.hooks.onHit(poke, res.dealt, false, "basic");
         this._afterHit(poke, attacker, res.dealt);
+      } else if (wounded && this.hooks.onAction) {
+        this.hooks.onAction(attacker, "heal", wounded);
       }
       this._checkEnd();
       return;
@@ -624,7 +626,7 @@
       this._push(target.name + " reflete " + reflected, "hit", target.team);
       if (this.hooks.onHit) this.hooks.onHit(attacker, reflected, false, "basic");
     }
-    if (this.hooks.onAction) this.hooks.onAction(attacker, "basic");
+    if (this.hooks.onAction) this.hooks.onAction(attacker, "basic", target);
     if (this.hooks.onHit) this.hooks.onHit(target, result.dealt, isCrit, "basic");
     this._checkEnd();
   };
@@ -660,7 +662,7 @@
         "skill",
         attacker.team
       );
-      if (this.hooks.onAction) this.hooks.onAction(attacker, "skill");
+      if (this.hooks.onAction) this.hooks.onAction(attacker, "skill", main || null);
       return;
     }
 
@@ -670,6 +672,7 @@
       let total = 0;
       for (let i = 0; i < targets.length; i++) {
         const t = targets[i];
+        if (this.hooks.onAction) this.hooks.onAction(attacker, "skill", t);
         const dmg = mitigate(t, Math.max(1, Math.round(attacker.damage * skill.power * 0.55)), attacker);
         const res = applyDamage(t, dmg);
         total += res.dealt;
@@ -681,7 +684,6 @@
         if (this.hooks.onHit) this.hooks.onHit(t, res.dealt, false, "skill");
       }
       this._push(attacker.name + " usa " + skill.name + ": " + total + " em área + debuffs", "skill", attacker.team);
-      if (this.hooks.onAction) this.hooks.onAction(attacker, "skill");
       this._checkEnd();
       return;
     }
@@ -782,7 +784,7 @@
       this._push(target.name + " reflete " + reflected, "hit", target.team);
       if (this.hooks.onHit) this.hooks.onHit(attacker, reflected, false, "skill");
     }
-    if (this.hooks.onAction) this.hooks.onAction(attacker, "skill");
+    if (this.hooks.onAction) this.hooks.onAction(attacker, "skill", target);
     if (this.hooks.onHit) this.hooks.onHit(target, totalDealt, anyCrit, "skill");
     this._checkEnd();
   };
@@ -903,12 +905,20 @@
     return allPicks().map(function (x) { return x.pick.id; });
   }
 
-  function teamFull(team) {
-    return SLOT_ORDER.every(function (s) { return !!state.teams[team][s]; });
+  function teamCount(team) {
+    return SLOT_ORDER.reduce(function (n, s) {
+      return n + (state.teams[team][s] ? 1 : 0);
+    }, 0);
+  }
+
+  /** Time válido: 1–3 heróis e sempre com alguém na frente */
+  function teamReady(team) {
+    const count = teamCount(team);
+    return count >= 1 && count <= 3 && !!state.teams[team].front;
   }
 
   function canFight() {
-    return teamFull("a") && teamFull("b");
+    return teamReady("a") && teamReady("b");
   }
 
   function slotCardHtml(pick) {
@@ -921,6 +931,27 @@
     );
   }
 
+  function promoteFrontIfNeeded(team) {
+    if (state.teams[team].front) return;
+    for (let i = 0; i < 2; i++) {
+      const slot = "back" + i;
+      if (state.teams[team][slot]) {
+        state.teams[team].front = state.teams[team][slot];
+        state.teams[team][slot] = null;
+        return;
+      }
+    }
+  }
+
+  function clearSlot(team, slot) {
+    state.teams[team][slot] = null;
+    if (slot === "front") promoteFrontIfNeeded(team);
+    if (!state.teams[team].front) state.activeSlot = "front";
+    else if (!state.teams[team][state.activeSlot]) {
+      state.activeSlot = nextEmptySlot(team) || "front";
+    }
+  }
+
   function renderFormation() {
     const team = state.activeTeam;
     const front = state.teams[team].front;
@@ -929,7 +960,10 @@
       (state.activeSlot === "front" ? " active" : "") +
       (front ? " filled" : "") +
       '" data-slot="front"><span class="slot-label">F</span><div class="slot-body">' +
-      (front ? slotCardHtml(front) : '<span class="slot-empty">Frente</span>') +
+      (front
+        ? slotCardHtml(front) +
+          '<button type="button" class="slot-remove" data-remove="front" aria-label="Remover">✕</button>'
+        : '<span class="slot-empty">Frente (obrigatório)</span>') +
       "</div></button>";
 
     ui.slotsBack.innerHTML = ["back0", "back1"]
@@ -941,7 +975,12 @@
           (pick ? " filled" : "") +
           '" data-slot="' + slot + '"><span class="slot-label">T' + (i + 1) +
           '</span><div class="slot-body">' +
-          (pick ? slotCardHtml(pick) : '<span class="slot-empty">Trás</span>') +
+          (pick
+            ? slotCardHtml(pick) +
+              '<button type="button" class="slot-remove" data-remove="' +
+              slot +
+              '" aria-label="Remover">✕</button>'
+            : '<span class="slot-empty">Trás (opcional)</span>') +
           "</div></button>"
         );
       })
@@ -1033,8 +1072,18 @@
       }
       return;
     }
-    state.teams[state.activeTeam][state.activeSlot] = makePick(id);
-    const placed = state.activeSlot;
+    // Sempre preencher a frente antes das costas
+    let slot = state.activeSlot;
+    if (slot !== "front" && !state.teams[state.activeTeam].front) {
+      slot = "front";
+      state.activeSlot = "front";
+    }
+    if (teamCount(state.activeTeam) >= 3 && state.teams[state.activeTeam][slot]) {
+      showToast("Máximo de 3 heróis por time");
+      return;
+    }
+    state.teams[state.activeTeam][slot] = makePick(id);
+    const placed = slot;
     const next = nextEmptySlot(state.activeTeam);
     if (next) state.activeSlot = next;
     renderFormation();
@@ -1149,19 +1198,66 @@
     state.prevShield[uid] = current;
   }
 
-  function playAttackMotion(unit, kind) {
+  function playAttackMotion(unit, kind, target) {
     const el = $("#fighter-" + unit.uid);
     if (!el) return;
     el.classList.remove("attacking");
     void el.offsetWidth;
     el.classList.add("attacking");
     window.setTimeout(function () { el.classList.remove("attacking"); }, 340);
+
+    if (target) {
+      const targetEl = $("#fighter-" + target.uid);
+      if (targetEl) {
+        targetEl.classList.remove("targeted");
+        void targetEl.offsetWidth;
+        targetEl.classList.add("targeted");
+        window.setTimeout(function () { targetEl.classList.remove("targeted"); }, 520);
+      }
+    }
+
     const layer = $("#slash-layer");
     if (!layer) return;
+    const fromEl = $("#fighter-" + unit.uid + "-avatar") || $("#fighter-" + unit.uid + "-sprite");
+    const toEl = target
+      ? ($("#fighter-" + target.uid + "-avatar") || $("#fighter-" + target.uid + "-sprite"))
+      : null;
+    if (!fromEl || !toEl) return;
+
+    const layerRect = layer.getBoundingClientRect();
+    const from = fromEl.getBoundingClientRect();
+    const to = toEl.getBoundingClientRect();
+    const x1 = from.left + from.width / 2 - layerRect.left;
+    const y1 = from.top + from.height / 2 - layerRect.top;
+    const x2 = to.left + to.width / 2 - layerRect.left;
+    const y2 = to.top + to.height / 2 - layerRect.top;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dist = Math.max(36, Math.hypot(dx, dy));
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
     const slash = document.createElement("div");
-    slash.className = "slash from-" + unit.team + (kind === "skill" ? " skill" : "");
+    slash.className =
+      "slash aimed from-" + unit.team +
+      (kind === "skill" ? " skill" : "") +
+      (kind === "heal" ? " heal" : "");
+    slash.style.left = x1 + "px";
+    slash.style.top = y1 + "px";
+    slash.style.width = dist + "px";
+    slash.style.setProperty("--slash-angle", angle + "deg");
     layer.appendChild(slash);
-    window.setTimeout(function () { slash.remove(); }, 420);
+
+    // Marcador no alvo: “X” de impacto
+    const mark = document.createElement("div");
+    mark.className = "slash-mark" + (kind === "skill" ? " skill" : "") + (kind === "heal" ? " heal" : "");
+    mark.style.left = x2 + "px";
+    mark.style.top = y2 + "px";
+    layer.appendChild(mark);
+
+    window.setTimeout(function () {
+      slash.remove();
+      mark.remove();
+    }, 480);
   }
 
   function flashHit(unit) {
@@ -1204,11 +1300,11 @@
     ui.battle.hidden = mode !== "battle";
     ui.result.hidden = mode !== "result";
     if (mode === "select") {
-      ui.tagline.textContent = "Monte os times 3x3";
+      ui.tagline.textContent = "1–3 heróis · frente obrigatória";
       ui.btnPrimary.textContent = "Iniciar luta";
       ui.btnSwap.hidden = false;
     } else if (mode === "battle") {
-      ui.tagline.textContent = "Combate 3x3";
+      ui.tagline.textContent = "Combate";
       ui.btnPrimary.textContent = "Pular / Rendição";
       ui.btnSwap.hidden = true;
     } else {
@@ -1226,14 +1322,16 @@
   }
 
   function buildTeam(teamKey) {
-    return SLOT_ORDER.map(function (slot) {
+    return SLOT_ORDER.filter(function (slot) {
+      return !!state.teams[teamKey][slot];
+    }).map(function (slot) {
       return createCombatant(state.teams[teamKey][slot], teamKey, slot);
     });
   }
 
   function startBattle() {
     if (!canFight()) {
-      showToast("Preencha os 3 slots de cada time");
+      showToast("Cada time precisa de 1–3 heróis e alguém na frente");
       return;
     }
     try {
@@ -1258,9 +1356,9 @@
         onHeal: function (target, amount) {
           spawnDamageNumber(target, amount, false, "heal");
         },
-        onAction: function (attacker, kind) {
+        onAction: function (attacker, kind, target) {
           setAction(attacker, kind);
-          playAttackMotion(attacker, kind);
+          playAttackMotion(attacker, kind, target || null);
         },
         onFrame: function (battle) {
           battle.all.forEach(updateUnitBars);
@@ -1352,12 +1450,25 @@
     ui.slotsBack.addEventListener("click", onSlotClick);
 
     function onSlotClick(e) {
+      const removeBtn = e.target.closest(".slot-remove");
+      if (removeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (state.mode !== "select") return;
+        const slot = removeBtn.getAttribute("data-remove");
+        clearSlot(state.activeTeam, slot);
+        renderFormation();
+        renderRoster();
+        showDetailForPick(activePick());
+        return;
+      }
       const btn = e.target.closest(".slot");
       if (!btn || state.mode !== "select") return;
       state.activeSlot = btn.getAttribute("data-slot");
       renderFormation();
       const pick = activePick();
       if (pick) showDetailForPick(pick);
+      else ui.detail.hidden = true;
     }
 
     ui.tabA.addEventListener("click", function () {
