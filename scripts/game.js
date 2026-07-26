@@ -1032,12 +1032,21 @@
 
   function renderRoster() {
     const used = usedIds();
+    // Força trilho horizontal mesmo se CSS externo falhar no preview
+    ui.roster.classList.add("roster-rail");
+    ui.roster.style.display = "flex";
+    ui.roster.style.flexDirection = "row";
+    ui.roster.style.flexWrap = "nowrap";
+    ui.roster.style.gap = "8px";
+    ui.roster.style.overflowX = "auto";
+    ui.roster.style.overflowY = "hidden";
+    ui.roster.style.WebkitOverflowScrolling = "touch";
     ui.roster.innerHTML = CHARACTERS.map(function (ch) {
       const taken = used.indexOf(ch.id) >= 0;
       return (
         '<button type="button" class="char-card' + (taken ? " selected" : "") +
         '" data-id="' + ch.id + '"' + (taken ? " disabled" : "") +
-        ' style="--tone:' + ch.color + '">' +
+        ' style="--tone:' + ch.color + ';flex:0 0 104px;width:104px;min-width:104px;max-width:104px;box-sizing:border-box;">' +
         '<span class="char-glyph">' + ch.glyph + "</span>" +
         '<span class="char-name">' + ch.name + "</span>" +
         '<span class="char-class">' + ch.className + "</span>" +

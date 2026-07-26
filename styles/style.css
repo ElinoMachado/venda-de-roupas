@@ -250,12 +250,23 @@ button {
 }
 
 /* Roster */
-.roster {
-  display: flex;
-  flex-wrap: nowrap;
+.roster-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#roster.roster,
+.roster.roster-rail {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  grid-template-columns: none !important;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
   padding: 2px 2px 8px;
@@ -263,18 +274,23 @@ button {
   scrollbar-color: rgba(240, 163, 94, 0.45) transparent;
 }
 
-.roster::-webkit-scrollbar {
+#roster.roster::-webkit-scrollbar,
+.roster.roster-rail::-webkit-scrollbar {
   height: 5px;
 }
 
-.roster::-webkit-scrollbar-thumb {
+#roster.roster::-webkit-scrollbar-thumb,
+.roster.roster-rail::-webkit-scrollbar-thumb {
   background: rgba(240, 163, 94, 0.4);
   border-radius: 999px;
 }
 
-.char-card {
-  flex: 0 0 auto;
-  width: 104px;
+#roster .char-card,
+.roster-rail .char-card {
+  flex: 0 0 104px !important;
+  width: 104px !important;
+  max-width: 104px !important;
+  min-width: 104px !important;
   border: 1px solid var(--line);
   background: linear-gradient(165deg, #352b22, #241d17);
   border-radius: var(--radius);
@@ -285,9 +301,11 @@ button {
   align-items: flex-start;
   scroll-snap-align: start;
   transition: transform 0.15s ease, border-color 0.15s;
+  box-sizing: border-box;
 }
 
-.char-card .char-glyph {
+#roster .char-card .char-glyph,
+.roster-rail .char-card .char-glyph {
   width: 40px;
   height: 40px;
   font-size: 1.2rem;

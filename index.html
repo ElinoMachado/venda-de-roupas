@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=18" />
+  <link rel="stylesheet" href="/styles/style.css?v=19" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -262,12 +262,23 @@ button {
 }
 
 /* Roster */
-.roster {
-  display: flex;
-  flex-wrap: nowrap;
+.roster-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#roster.roster,
+.roster.roster-rail {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  grid-template-columns: none !important;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
   padding: 2px 2px 8px;
@@ -275,18 +286,23 @@ button {
   scrollbar-color: rgba(240, 163, 94, 0.45) transparent;
 }
 
-.roster::-webkit-scrollbar {
+#roster.roster::-webkit-scrollbar,
+.roster.roster-rail::-webkit-scrollbar {
   height: 5px;
 }
 
-.roster::-webkit-scrollbar-thumb {
+#roster.roster::-webkit-scrollbar-thumb,
+.roster.roster-rail::-webkit-scrollbar-thumb {
   background: rgba(240, 163, 94, 0.4);
   border-radius: 999px;
 }
 
-.char-card {
-  flex: 0 0 auto;
-  width: 104px;
+#roster .char-card,
+.roster-rail .char-card {
+  flex: 0 0 104px !important;
+  width: 104px !important;
+  max-width: 104px !important;
+  min-width: 104px !important;
   border: 1px solid var(--line);
   background: linear-gradient(165deg, #352b22, #241d17);
   border-radius: var(--radius);
@@ -297,9 +313,11 @@ button {
   align-items: flex-start;
   scroll-snap-align: start;
   transition: transform 0.15s ease, border-color 0.15s;
+  box-sizing: border-box;
 }
 
-.char-card .char-glyph {
+#roster .char-card .char-glyph,
+.roster-rail .char-card .char-glyph {
   width: 40px;
   height: 40px;
   font-size: 1.2rem;
@@ -1464,7 +1482,14 @@ button {
         <p class="formation-hint">Toque 2x no herói para remover</p>
       </div>
 
-      <div class="roster" id="roster" role="list"></div>
+      <div class="roster-wrap">
+        <div
+          class="roster roster-rail"
+          id="roster"
+          role="list"
+          style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"
+        ></div>
+      </div>
 
       <div class="detail" id="detail" hidden>
         <h2 id="detail-name"></h2>
@@ -1546,12 +1571,12 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=18"></script>
+  <script src="/scripts/game.js?v=19"></script>
   <script>
     // Injeta CSS inline se o link externo falhar no preview
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=18")
+      fetch("/styles/style.css?v=19")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");
