@@ -3,7 +3,7 @@
 
   (function ensureStyles() {
     if (document.getElementById("arena-inline-css")) return;
-    fetch("/styles/style.css?v=30")
+    fetch("/styles/style.css?v=31")
       .then(function (r) { return r.text(); })
       .then(function (css) {
         if (document.getElementById("arena-inline-css")) return;
@@ -1595,8 +1595,10 @@
     if (floor >= tower.floors) {
       ui.btnPrimary.textContent = "Torre concluída";
       ui.btnPrimary.classList.add("is-disabled");
+    } else if (!state.team.front) {
+      ui.btnPrimary.textContent = "Precisa de formação";
     } else {
-      ui.btnPrimary.textContent = "Lutar andar " + (floor + 1);
+      ui.btnPrimary.textContent = "Iniciar combate · andar " + (floor + 1);
     }
   }
 

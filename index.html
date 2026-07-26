@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=30" />
+  <link rel="stylesheet" href="/styles/style.css?v=31" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -90,7 +90,24 @@ button {
   color: #1a120c;
   background: linear-gradient(180deg, #ffd089, #e0a03a);
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 4px 10px;
+}
+
+.build-badge {
+  position: absolute;
+  top: 10px;
+  left: 4px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.28);
 }
 
 .brand {
@@ -2022,15 +2039,17 @@ button {
       <p class="brand">Arena RPG</p>
       <p class="tagline" id="screen-tagline">Escolha seu caminho</p>
       <p class="xp-badge" id="xp-badge">XP 0</p>
+      <p class="build-badge" id="build-badge" title="Versão desta build">build 31</p>
     </header>
 
     <!-- Menu -->
     <section id="screen-menu" class="screen screen-menu">
       <div class="menu-stack">
         <button type="button" class="menu-btn primary" data-menu="new">Novo jogo</button>
-        <button type="button" class="menu-btn" data-menu="continue">Continuar</button>
-        <button type="button" class="menu-btn" data-menu="heroes">Heróis</button>
+        <button type="button" class="menu-btn" data-menu="continue">Continuar campanha</button>
+        <button type="button" class="menu-btn" data-menu="heroes">Heróis / níveis</button>
         <p class="menu-hint" id="menu-continue-hint" hidden></p>
+        <p class="menu-flow-hint">Fluxo: herói → formação → torre → combate → recompensa</p>
       </div>
     </section>
 
@@ -2139,11 +2158,11 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=30"></script>
+  <script src="/scripts/game.js?v=31"></script>
   <script>
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=30")
+      fetch("/styles/style.css?v=31")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");

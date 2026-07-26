@@ -78,7 +78,24 @@ button {
   color: #1a120c;
   background: linear-gradient(180deg, #ffd089, #e0a03a);
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 4px 10px;
+}
+
+.build-badge {
+  position: absolute;
+  top: 10px;
+  left: 4px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.28);
 }
 
 .brand {
@@ -1407,6 +1424,18 @@ button {
   color: var(--muted);
   font-size: 0.82rem;
   margin: 8px 0 0;
+}
+
+.menu-flow-hint {
+  text-align: center;
+  color: var(--ember-2);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin: 12px 4px 0;
+  padding: 8px 10px;
+  border: 1px dashed rgba(240, 163, 94, 0.35);
+  border-radius: 10px;
+  background: rgba(224, 122, 58, 0.08);
 }
 
 .section-title {
