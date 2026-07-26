@@ -3,7 +3,7 @@
 
   (function ensureStyles() {
     if (document.getElementById("arena-inline-css")) return;
-    fetch("/styles/style.css?v=29")
+    fetch("/styles/style.css?v=30")
       .then(function (r) { return r.text(); })
       .then(function (css) {
         if (document.getElementById("arena-inline-css")) return;
@@ -938,6 +938,8 @@
     rollContext: "starter", // starter | reward
     selectedRollIdx: null,
     pendingReward: null,
+    flowAfterReward: false,
+    flowStarter: false,
     activeTowerId: 1,
     battle: null,
     enemyTeam: emptyTeam(),
@@ -1220,45 +1222,63 @@
     if (mode === "menu") {
       ui.menu.hidden = false;
       ui.tagline.textContent = "Escolha seu caminho";
-      setDock("Heróis", state.save && state.save.hasStarter ? "Continuar" : "Novo jogo", false);
-      ui.btnSecondary.textContent = "Heróis";
+      setDock("Heróis", state.save && state.save.hasStarter ? "Continuar campanha" : "Novo jogo", false);
       renderMenu();
     } else if (mode === "heroes") {
       ui.heroes.hidden = false;
-      ui.tagline.textContent = "Sua coleção";
-      setDock("Menu", "Formação", false);
+      ui.tagline.textContent = "Coleção · subir nível e despertar";
+      setDock("Voltar", "Ir à formação", false);
       renderHeroes();
     } else if (mode === "roll") {
       ui.roll.hidden = false;
-      ui.tagline.textContent = state.rollContext === "starter" ? "Escolha inicial" : "Recompensa";
+      ui.tagline.textContent = state.rollContext === "starter"
+        ? "1/4 · Escolha o herói"
+        : "Recompensa · escolha 1 de 3";
       state.selectedRollIdx = null;
-      setDock("—", "Selecionar herói", true);
+      setDock("—", state.rollContext === "starter" ? "Confirmar herói" : "Confirmar escolha", true);
       ui.btnPrimary.classList.add("is-disabled");
       renderRoll();
     } else if (mode === "formation") {
       ui.formation.hidden = false;
-      ui.tagline.textContent = "Monte sua equipe";
-      setDock("Torres", "Ir às torres", false);
+      if (state.flowAfterReward) {
+        ui.tagline.textContent = "Ajuste a formação · depois o próximo andar";
+        setDock("Heróis", "Próximo andar", false);
+      } else if (state.flowStarter) {
+        ui.tagline.textContent = "2/4 · Herói na formação — continue";
+        setDock("Heróis", "Ver torre", false);
+      } else {
+        ui.tagline.textContent = "Formação da equipe";
+        setDock("Heróis", "Ver torre", false);
+      }
       renderFormation();
       renderOwnedRoster();
       showDetailForPick(state.team[state.activeSlot]);
     } else if (mode === "tower") {
       ui.tower.hidden = false;
-      ui.tagline.textContent = "Torre de adversários";
-      setDock("Equipe", "Lutar", false);
+      ui.tagline.textContent = state.flowAfterReward
+        ? "Próximo andar · iniciar combate"
+        : (state.flowStarter ? "3/4 · Torre · iniciar combate" : "Torre · iniciar combate");
+      state.flowAfterReward = false;
+      state.flowStarter = false;
+      setDock("Formação", "Iniciar combate", false);
       renderTower();
     } else if (mode === "battle") {
       ui.battle.hidden = false;
       ui.tagline.textContent = "Combate";
-      setDock("—", "Pular / Rendição", true);
+      setDock("—", "Desistir", true);
     } else if (mode === "result") {
       ui.result.hidden = false;
       ui.tagline.textContent = "Fim da luta";
-      setDock("Torres", "Continuar", false);
+      if (state._resultWin) {
+        setDock("—", "Abrir recompensa", true);
+      } else {
+        setDock("Formação", "Tentar de novo", false);
+      }
     } else if (mode === "reward") {
       ui.reward.hidden = false;
-      ui.tagline.textContent = "Novo herói";
-      setDock("—", "Decida o destino", true);
+      ui.tagline.textContent = "Guardar ou vender o herói";
+      setDock("—", "Escolha acima", true);
+      ui.btnPrimary.classList.add("is-disabled");
       renderReward();
     }
   }
@@ -1371,10 +1391,12 @@
     if (ui.rollTitle) {
       ui.rollTitle.textContent = state.rollContext === "starter"
         ? "Escolha seu primeiro herói"
-        : "Rolete da vitória";
+        : "Recompensa da vitória";
     }
     if (ui.rollSubtitle) {
-      ui.rollSubtitle.textContent = "Toque um dos 3 cards — detalhes aparecem no painel acima";
+      ui.rollSubtitle.textContent = state.rollContext === "starter"
+        ? "Toque para ver info → confirme embaixo → vai para a formação"
+        : "Toque para ver info → confirme → guardar ou vender";
     }
     const choices = document.getElementById("roll-choices") || ui.rollChoices;
     if (!choices) return;
@@ -1437,7 +1459,9 @@
       "</div>";
 
     ui.btnPrimary.classList.remove("is-disabled");
-    ui.btnPrimary.textContent = "Confirmar " + ch.name;
+    ui.btnPrimary.textContent = state.rollContext === "starter"
+      ? "Confirmar " + ch.name
+      : "Escolher " + ch.name;
   }
 
   function renderOwnedRoster() {
@@ -1581,14 +1605,19 @@
     if (!opt) return;
     const ch = getTemplate(opt.id);
     const xp = sellXpValue(opt.level || 1, opt.rarity || 1);
+    const owned = state.save.collection[opt.id];
+    const keepLabel = owned
+      ? (owned.rarity < 5 ? "Guardar cópia (fusão)" : "Guardar cópia")
+      : "Adicionar à formação/coleção";
     ui.rewardCard.innerHTML =
       '<div class="roll-card static" style="--tone:' + ch.color + '">' +
       '<span class="char-glyph">' + ch.glyph + "</span>" +
       "<strong>" + ch.name + "</strong>" +
       "<small>" + ch.className + " · Nv." + (opt.level || 1) + "</small>" +
-      "<span class='stars'>" + starsHtml(opt.rarity || 1) + "</span></div>";
+      "<span class='stars'>" + starsHtml(opt.rarity || 1) + "</span></div>" +
+      '<p class="section-sub" style="margin-top:10px">Depois você poderá ver a formação e seguir ao próximo andar.</p>';
     ui.rewardActions.innerHTML =
-      '<button type="button" class="btn primary" data-reward="keep">Adicionar à coleção</button>' +
+      '<button type="button" class="btn primary" data-reward="keep">' + keepLabel + "</button>" +
       '<button type="button" class="btn ghost" data-reward="sell">Vender por ' + xp + " XP</button>";
   }
 
@@ -1966,20 +1995,16 @@
         showToast("Nova torre desbloqueada!");
       }
       persist();
-      ui.resultName.textContent = "Vitória";
-      ui.resultSummary.textContent =
-        tower.name + " · Andar " + (floor + 1) + " limpo. Rolete um novo herói!";
-      showScreen("result");
-      ui.btnPrimary.textContent = "Roletar herói";
-      ui.btnSecondary.textContent = "Torres";
       state._resultWin = true;
-    } else {
-      ui.resultName.textContent = winnerTeam ? "Derrota" : "Empate";
-      ui.resultSummary.textContent = "Reorganize a equipe e tente de novo.";
+      ui.resultName.textContent = "Vitória!";
+      ui.resultSummary.textContent =
+        tower.name + " · Andar " + (floor + 1) + " limpo. Role um novo herói e decida se guarda ou vende.";
       showScreen("result");
-      ui.btnPrimary.textContent = "Torres";
-      ui.btnSecondary.textContent = "Equipe";
+    } else {
       state._resultWin = false;
+      ui.resultName.textContent = winnerTeam ? "Derrota" : "Empate";
+      ui.resultSummary.textContent = "Ajuste a formação e tente o andar de novo.";
+      showScreen("result");
     }
   }
 
@@ -2013,15 +2038,25 @@
     if (state.rollContext === "starter") {
       addHeroToCollection(opt.id, { level: 1, awakened: 0 });
       state.save.hasStarter = true;
+      state.team = emptyTeam();
       state.team.front = entryToPick(state.save.collection[opt.id]);
+      state.activeSlot = "back0";
+      state.flowAfterReward = false;
+      state.flowStarter = true;
       persist();
-      showToast(getTemplate(opt.id).name + " entrou para sua equipe!");
+      showToast(getTemplate(opt.id).name + " pronto — confira a formação");
       showScreen("formation");
       return;
     }
-    // reward: go to keep/sell screen for this pick
+    // reward: escolher o herói → tela guardar/vender
     state.pendingReward = opt;
     showScreen("reward");
+  }
+
+  function afterRewardDecision() {
+    state.pendingReward = null;
+    state.flowAfterReward = true;
+    showScreen("formation");
   }
 
   function keepReward() {
@@ -2030,11 +2065,10 @@
     const res = addHeroToCollection(opt.id, { level: opt.level || 1 });
     persist();
     const name = getTemplate(opt.id).name;
-    if (res.created) showToast(name + " adicionado à coleção");
-    else if (res.fused) showToast(name + " fundido! Agora " + starsHtml(res.entry.rarity));
+    if (res.created) showToast(name + " na coleção — veja a formação");
+    else if (res.fused) showToast(name + " fundido! " + starsHtml(res.entry.rarity));
     else showToast("Cópia de " + name + " guardada");
-    state.pendingReward = null;
-    showScreen("tower");
+    afterRewardDecision();
   }
 
   function sellReward() {
@@ -2043,9 +2077,8 @@
     const xp = sellXpValue(opt.level || 1, opt.rarity || 1);
     state.save.xp += xp;
     persist();
-    showToast("+" + xp + " XP");
-    state.pendingReward = null;
-    showScreen("heroes");
+    showToast("+" + xp + " XP — veja a formação");
+    afterRewardDecision();
   }
 
   function placeOwnedHero(id) {
@@ -2188,6 +2221,10 @@
         }
         chooseRoll(state.selectedRollIdx);
       } else if (state.mode === "formation") {
+        if (!state.team.front) {
+          showToast("Coloque um herói na frente");
+          return;
+        }
         showScreen("tower");
       } else if (state.mode === "tower") {
         startTowerFight();
@@ -2200,13 +2237,18 @@
     });
 
     ui.btnSecondary.addEventListener("click", function () {
-      if (state.mode === "menu") showScreen("heroes");
-      else if (state.mode === "heroes") showScreen("menu");
-      else if (state.mode === "formation") showScreen("tower");
-      else if (state.mode === "tower") showScreen("formation");
-      else if (state.mode === "result") {
-        if (state._resultWin) showScreen("tower");
-        else showScreen("formation");
+      if (state.mode === "menu") {
+        showScreen("heroes");
+      } else if (state.mode === "heroes") {
+        // Volta ao ponto da campanha
+        if (state.save && state.save.hasStarter) showScreen("formation");
+        else showScreen("menu");
+      } else if (state.mode === "formation") {
+        showScreen("heroes");
+      } else if (state.mode === "tower") {
+        showScreen("formation");
+      } else if (state.mode === "result") {
+        if (!state._resultWin) showScreen("formation");
       }
     });
   }

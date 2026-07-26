@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=29" />
+  <link rel="stylesheet" href="/styles/style.css?v=30" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -2065,7 +2065,7 @@ button {
           <p class="formation-label">Linha de trás <span>(até 2)</span></p>
           <div class="formation-slots back-slots" id="slots-back"></div>
         </div>
-        <p class="formation-hint">Toque 2x para remover · Nível/raridade só em Heróis</p>
+        <p class="formation-hint">Toque no roster para colocar · toque 2x no slot para remover · depois avance para a torre</p>
       </div>
 
       <div class="roster-wrap">
@@ -2126,7 +2126,7 @@ button {
 
     <!-- Recompensa -->
     <section id="screen-reward" class="screen screen-reward" hidden>
-      <h2 class="section-title">O que fazer com o herói?</h2>
+      <h2 class="section-title">Guardar ou vender?</h2>
       <div id="reward-card"></div>
       <div class="reward-actions" id="reward-actions"></div>
     </section>
@@ -2139,11 +2139,11 @@ button {
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=29"></script>
+  <script src="/scripts/game.js?v=30"></script>
   <script>
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=29")
+      fetch("/styles/style.css?v=30")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");
