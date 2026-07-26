@@ -86,7 +86,29 @@
   function pct(n) { return Math.round(n * 100) + "%"; }
   function starsHtml(n) { return "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n)); }
   function awakenedLabel(n) { return n <= 0 ? "Base" : "Despertar " + n; }
-  function levelMult(level) { return 1 + (level - 1) * 0.04; }
+  /**
+   * Curva de combate por nível (referência nv10 = 1.0x).
+   * HP/dano/defesa sobem ~linear com o nível, o que deixa 1 peça
+   * forte o bastante para encarar ~2 da metade do nível
+   * (10 vs 2×5, 20 vs 2×10, 30 vs 2×15, 40 vs 2×20).
+   * Acima do 30 há um leve reforço para nv50 ≈ 2×30.
+   */
+  function levelMult(level) {
+    const L = clamp(level, 1, 50);
+    let m = L / 10;
+    if (L > 30) {
+      const t = (L - 30) / 20;
+      m *= 1 + 0.2 * t;
+    }
+    return m;
+  }
+
+  /** Velocidade sobe bem menos que HP/dano, para não virar só “quem age mais”. */
+  function speedLevelMult(level) {
+    const L = clamp(level, 1, 50);
+    return Math.pow(L / 10, 0.35);
+  }
+
   function rarityStars(rarity) { return clamp(rarity, 1, 5); }
   function rarityMult(rate, rarity) { return 1 + rarityStars(rarity) * rate; }
 
@@ -290,7 +312,7 @@
     const rarity = clamp(pick.rarity, 1, 5);
     const awakened = clamp(pick.awakened, 0, 3);
     const lm = levelMult(level);
-    const speedLm = 1 + (level - 1) * 0.018;
+    const speedLm = speedLevelMult(level);
     const rb = RARITY_BONUS[template.role] || RARITY_BONUS.fighter;
     const abilities = resolveAbilities(template, rarity, awakened);
     const b = template.base;
