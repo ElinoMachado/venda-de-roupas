@@ -127,11 +127,11 @@
         power: template.skillBasePower * skillMult * (1 + a * 0.07),
         ignoreDef: 0.1 + a * 0.05, bleedPct: 0.06 + a * 0.015,
         bleedTicks: 3 + (a >= 1 ? 1 : 0) + (a >= 3 ? 1 : 0),
-        staminaDrain: a >= 1 ? 8 + a * 6 : 0, targetMode: "lowest",
+        staminaDrain: a >= 1 ? 8 + a * 6 : 0, targetMode: "front",
       };
       return pack(template, passive, skill,
         "Críticos ignoram " + pct(passive.critIgnoreDef) + " da defesa e causam +" + pct(passive.critBonusDmg) + " de dano.",
-        "Exceção de alvo: mira o inimigo de menor vida (" + Math.round(skill.power * 100) + "% + sangramento).");
+        "Golpe na frente: " + Math.round(skill.power * 100) + "% do dano + sangramento.");
     }
 
     if (template.role === "tank" && kit === "fortress") {
@@ -184,13 +184,13 @@
       const skill = {
         name: template.skillName, manaCost: template.skillManaCost,
         power: template.skillBasePower * skillMult * (1 + a * 0.08) * (1 + passive.skillPowerBonus),
-        targetMode: "back_random",
+        targetMode: "front",
         ignoreDef: 0.2 + a * 0.06, staminaDrain: 10 + a * 5,
         burnTicks: 2 + (a >= 1 ? 1 : 0), burnPct: 0.05 + a * 0.015,
       };
       return pack(template, passive, skill,
         "Skills +" + pct(passive.skillPowerBonus) + ". Básicos podem gerar +1 mana.",
-        "Exceção de alvo: meteoro num inimigo da linha de trás (" + Math.round(skill.power * 100) + "% + queimadura).");
+        "Meteoro na frente: " + Math.round(skill.power * 100) + "% + queimadura.");
     }
 
     if (template.role === "fighter" && kit === "antitank") {
@@ -251,7 +251,7 @@
       };
       return pack(template, passive, skill,
         "Frágil. Aura cura aliados (" + pct(passive.auraHealPerSec) + " HP/s). Básico cura o mais ferido.",
-        "Exceção de alvo: cura o aliado mais ferido, regenera o time por " + skill.buffDuration + "s e buffa ataque/defesa.");
+        "Cura o aliado mais ferido, regenera o time por " + skill.buffDuration + "s e buffa ataque/defesa.");
     }
 
     // support_control
@@ -273,7 +273,7 @@
     };
       return pack(template, passive, skill,
         "Mais resistente. Básicos (na frente) aplicam lentidão e redução de ataque.",
-        "Exceção de alvo: atinge todos os inimigos com menos ataque, lentidão" + (skill.aoeMark ? " e marca de dano" : "") + ".");
+        "Suprime o time inimigo inteiro: menos ataque, lentidão" + (skill.aoeMark ? " e marca de dano" : "") + ".");
     }
 
   function pack(template, passive, skill, pDesc, sDesc) {
@@ -353,11 +353,15 @@
     return a.reduce(function (best, f) { return f.hp < best.hp ? f : best; });
   }
 
-  /** Ataque básico: sempre foca o tank/frente. Exceções só em skills ativas (targetMode). */
-  function pickBasicTarget(_attacker, enemies) {
+  /** Ataques e skills ofensivas focam o tank/frente (fallback: qualquer vivo). */
+  function pickFrontTarget(enemies) {
     const all = aliveOf(enemies);
     if (!all.length) return null;
     return frontOf(enemies) || all[0];
+  }
+
+  function pickBasicTarget(_attacker, enemies) {
+    return pickFrontTarget(enemies);
   }
 
   function applyDamage(target, amount) {
@@ -706,16 +710,8 @@
       return;
     }
 
-    // Single-target skills
-    let target = null;
-    if (skill.targetMode === "lowest") target = lowestHp(enemies);
-    else if (skill.targetMode === "back_random") {
-      const back = backlineOf(enemies);
-      const pool = back.length ? back : aliveOf(enemies);
-      target = pool[Math.floor(Math.random() * pool.length)];
-    } else {
-      target = frontOf(enemies) || aliveOf(enemies)[0];
-    }
+    // Skills ofensivas single-target: sempre a frente/tank
+    const target = pickFrontTarget(enemies);
     if (!target) return;
 
     let power = skill.power;
