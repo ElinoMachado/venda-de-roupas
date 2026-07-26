@@ -3,7 +3,7 @@
 
   (function ensureStyles() {
     if (document.getElementById("arena-inline-css")) return;
-    fetch("/styles/style.css?v=11")
+    fetch("/styles/style.css?v=26")
       .then(function (r) { return r.text(); })
       .then(function (css) {
         if (document.getElementById("arena-inline-css")) return;
@@ -867,15 +867,35 @@
     if (this.hooks.onFrame) this.hooks.onFrame(this);
   };
 
-  /* ========== UI ========== */
+  /* ========== Campanha / UI ========== */
   function $(sel) { return document.querySelector(sel); }
+
+  const SAVE_KEY = "arena_rpg_save_v2";
+  const TOWERS = [
+    { id: 1, name: "Torre 1", subtitle: "Equipe 1", teamSize: 1, floors: 4, baseLevel: 4 },
+    { id: 2, name: "Torre 2", subtitle: "Equipe 2", teamSize: 2, floors: 4, baseLevel: 10 },
+    { id: 3, name: "Torre 3", subtitle: "Equipe 3", teamSize: 3, floors: 4, baseLevel: 16 },
+  ];
 
   const ui = {
     tagline: $("#screen-tagline"),
-    select: $("#screen-select"),
+    menu: $("#screen-menu"),
+    heroes: $("#screen-heroes"),
+    roll: $("#screen-roll"),
+    formation: $("#screen-formation"),
+    tower: $("#screen-tower"),
     battle: $("#screen-battle"),
     result: $("#screen-result"),
+    reward: $("#screen-reward"),
     roster: $("#roster"),
+    heroesList: $("#heroes-list"),
+    heroesDetail: $("#heroes-detail"),
+    heroesDetailBody: $("#heroes-detail-body"),
+    rollChoices: $("#roll-choices"),
+    rollTitle: $("#roll-title"),
+    rollSubtitle: $("#roll-subtitle"),
+    slotsFront: $("#slots-front"),
+    slotsBack: $("#slots-back"),
     detail: $("#detail"),
     detailName: $("#detail-name"),
     detailMeta: $("#detail-meta"),
@@ -884,27 +904,22 @@
     detailPassiveDesc: $("#detail-passive-desc"),
     detailSkillName: $("#detail-skill-name"),
     detailSkillDesc: $("#detail-skill-desc"),
-    buildSlotLabel: $("#build-slot-label"),
-    cfgLevel: $("#cfg-level"),
-    cfgLevelVal: $("#cfg-level-val"),
-    cfgRarity: $("#cfg-rarity"),
-    cfgRarityVal: $("#cfg-rarity-val"),
-    cfgAwaken: $("#cfg-awaken"),
-    cfgAwakenVal: $("#cfg-awaken-val"),
-    slotsFront: $("#slots-front"),
-    slotsBack: $("#slots-back"),
-    tabA: $("#tab-a"),
-    tabB: $("#tab-b"),
+    towerLadder: $("#tower-ladder"),
+    towerTabs: $("#tower-tabs"),
+    towerTitle: $("#tower-title"),
     teamACol: $("#team-a-col"),
     teamBCol: $("#team-b-col"),
     btnPrimary: $("#btn-primary"),
-    btnSwap: $("#btn-swap"),
+    btnSecondary: $("#btn-secondary"),
     log: $("#battle-log"),
     battleTimer: $("#battle-timer"),
     battleTimerValue: $("#battle-timer-value"),
     battleTimerHaste: $("#battle-timer-haste"),
     resultName: $("#result-name"),
     resultSummary: $("#result-summary"),
+    rewardCard: $("#reward-card"),
+    rewardActions: $("#reward-actions"),
+    xpBadge: $("#xp-badge"),
     toast: $("#toast"),
   };
 
@@ -912,11 +927,17 @@
   const HASTE_MULT = 4;
 
   const state = {
-    mode: "select",
-    activeTeam: "a",
+    mode: "menu",
+    save: null,
     activeSlot: "front",
-    teams: { a: emptyTeam(), b: emptyTeam() },
+    team: emptyTeam(),
+    selectedHeroId: null,
+    rollOptions: [],
+    rollContext: "starter", // starter | reward
+    pendingReward: null,
+    activeTowerId: 1,
     battle: null,
+    enemyTeam: emptyTeam(),
     raf: 0,
     lastTs: 0,
     prevShield: {},
@@ -950,43 +971,392 @@
     if (ui.battleTimerHaste) ui.battleTimerHaste.hidden = !hasted;
   }
 
-  function renderStars(n) {
-    return '<span class="stars">' + starsHtml(n) + "</span>";
+  function defaultSave() {
+    return {
+      xp: 0,
+      collection: {},
+      team: { front: null, back0: null, back1: null },
+      unlockedTower: 1,
+      floorsCleared: { 1: 0, 2: 0, 3: 0 },
+      hasStarter: false,
+    };
   }
 
-  function activePick() {
-    return state.teams[state.activeTeam][state.activeSlot];
-  }
-
-  function allPicks() {
-    const out = [];
-    ["a", "b"].forEach(function (team) {
-      SLOT_ORDER.forEach(function (slot) {
-        const p = state.teams[team][slot];
-        if (p) out.push({ team: team, slot: slot, pick: p });
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return defaultSave();
+      const data = JSON.parse(raw);
+      const base = defaultSave();
+      return Object.assign(base, data, {
+        collection: data.collection || {},
+        team: Object.assign(base.team, data.team || {}),
+        floorsCleared: Object.assign(base.floorsCleared, data.floorsCleared || {}),
       });
+    } catch (e) {
+      return defaultSave();
+    }
+  }
+
+  function persist() {
+    state.save.team = {
+      front: state.team.front ? state.team.front.id : null,
+      back0: state.team.back0 ? state.team.back0.id : null,
+      back1: state.team.back1 ? state.team.back1.id : null,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+    syncXpBadge();
+  }
+
+  function syncXpBadge() {
+    if (ui.xpBadge) ui.xpBadge.textContent = "XP " + (state.save ? state.save.xp : 0);
+  }
+
+  function ownedList() {
+    return Object.keys(state.save.collection).map(function (id) {
+      return state.save.collection[id];
     });
+  }
+
+  function copiesNeededForNextStar(rarity) {
+    if (rarity >= 5) return 0;
+    return rarity; // 1→2 needs 1, 2→3 needs 2, ...
+  }
+
+  function autoFuse(entry) {
+    let fused = false;
+    while (entry.rarity < 5) {
+      const need = copiesNeededForNextStar(entry.rarity);
+      const spare = Math.max(0, entry.copies - 1);
+      if (spare < need) break;
+      entry.copies -= need;
+      entry.rarity += 1;
+      fused = true;
+    }
+    return fused;
+  }
+
+  function addHeroToCollection(id, opts) {
+    opts = opts || {};
+    const existing = state.save.collection[id];
+    if (!existing) {
+      state.save.collection[id] = {
+        id: id,
+        level: opts.level || 1,
+        rarity: 1,
+        awakened: opts.awakened || 0,
+        copies: 1,
+      };
+      return { created: true, fused: false, entry: state.save.collection[id] };
+    }
+    existing.copies += 1;
+    const fused = autoFuse(existing);
+    return { created: false, fused: fused, entry: existing };
+  }
+
+  function xpToNextLevel(level) {
+    if (level >= 50) return null;
+    return Math.round(28 * level * (1 + level * 0.07));
+  }
+
+  function sellXpValue(level, rarity) {
+    return Math.round(35 * Math.max(1, level) * Math.max(1, rarity));
+  }
+
+  function entryToPick(entry) {
+    return makePick(entry.id, {
+      level: entry.level,
+      rarity: entry.rarity,
+      awakened: entry.awakened,
+    });
+  }
+
+  function randomHeroId(exclude) {
+    exclude = exclude || [];
+    const pool = CHARACTERS.map(function (c) { return c.id; }).filter(function (id) {
+      return exclude.indexOf(id) < 0;
+    });
+    if (!pool.length) return CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function makeRollOptions(count) {
+    const out = [];
+    const used = [];
+    for (let i = 0; i < count; i++) {
+      const id = randomHeroId(used);
+      used.push(id);
+      out.push({ id: id, level: 1, rarity: 1, awakened: 0 });
+    }
     return out;
   }
 
-  function usedIds() {
-    return allPicks().map(function (x) { return x.pick.id; });
+  function getTower(id) {
+    return TOWERS.find(function (t) { return t.id === id; }) || TOWERS[0];
   }
 
-  function teamCount(team) {
-    return SLOT_ORDER.reduce(function (n, s) {
-      return n + (state.teams[team][s] ? 1 : 0);
-    }, 0);
+  function currentFloor(towerId) {
+    return state.save.floorsCleared[towerId] || 0;
   }
 
-  /** Time válido: 1–3 heróis e sempre com alguém na frente */
-  function teamReady(team) {
-    const count = teamCount(team);
-    return count >= 1 && count <= 3 && !!state.teams[team].front;
+  function enemyLevelFor(tower, floorIndex) {
+    return clamp(tower.baseLevel + floorIndex * 3, 1, 50);
   }
 
-  function canFight() {
-    return teamReady("a") && teamReady("b");
+  function buildEnemyTeam(tower, floorIndex) {
+    const size = tower.teamSize;
+    const level = enemyLevelFor(tower, floorIndex);
+    const rarity = clamp(1 + Math.floor(floorIndex / 2), 1, 4);
+    const awakened = floorIndex >= 3 ? 1 : 0;
+    const used = [];
+    const team = emptyTeam();
+    const slots = SLOT_ORDER.slice(0, size);
+    slots.forEach(function (slot) {
+      const id = randomHeroId(used);
+      used.push(id);
+      team[slot] = makePick(id, { level: level, rarity: rarity, awakened: awakened });
+    });
+    return team;
+  }
+
+  function playerTeamForFight(maxSize) {
+    const team = emptyTeam();
+    const slots = SLOT_ORDER.slice(0, maxSize);
+    slots.forEach(function (slot) {
+      const pick = state.team[slot];
+      if (pick && state.save.collection[pick.id]) {
+        team[slot] = entryToPick(state.save.collection[pick.id]);
+      }
+    });
+    return team;
+  }
+
+  function teamCountLocal(team) {
+    return SLOT_ORDER.reduce(function (n, s) { return n + (team[s] ? 1 : 0); }, 0);
+  }
+
+  function syncTeamFromSave() {
+    const t = emptyTeam();
+    SLOT_ORDER.forEach(function (slot) {
+      const id = state.save.team[slot];
+      if (id && state.save.collection[id]) t[slot] = entryToPick(state.save.collection[id]);
+    });
+    state.team = t;
+  }
+
+  function clearPlayerSlot(slot) {
+    state.team[slot] = null;
+    if (slot === "front") {
+      for (let i = 0; i < 2; i++) {
+        const s = "back" + i;
+        if (state.team[s]) {
+          state.team.front = state.team[s];
+          state.team[s] = null;
+          break;
+        }
+      }
+    }
+    if (!state.team.front) state.activeSlot = "front";
+    persist();
+  }
+
+  /* ----- screens ----- */
+  function hideAllScreens() {
+    ["menu", "heroes", "roll", "formation", "tower", "battle", "result", "reward"].forEach(function (k) {
+      if (ui[k]) ui[k].hidden = true;
+    });
+  }
+
+  function setDock(secondaryLabel, primaryLabel, secondaryHidden) {
+    ui.btnSecondary.textContent = secondaryLabel || "Voltar";
+    ui.btnPrimary.textContent = primaryLabel || "Continuar";
+    ui.btnSecondary.hidden = !!secondaryHidden;
+    ui.btnPrimary.classList.remove("is-disabled");
+    ui.btnPrimary.removeAttribute("disabled");
+    ui.btnSecondary.removeAttribute("disabled");
+  }
+
+  function showScreen(mode) {
+    state.mode = mode;
+    hideAllScreens();
+    syncXpBadge();
+
+    if (mode === "menu") {
+      ui.menu.hidden = false;
+      ui.tagline.textContent = "Escolha seu caminho";
+      setDock("Heróis", state.save && state.save.hasStarter ? "Continuar" : "Novo jogo", false);
+      ui.btnSecondary.textContent = "Heróis";
+      renderMenu();
+    } else if (mode === "heroes") {
+      ui.heroes.hidden = false;
+      ui.tagline.textContent = "Sua coleção";
+      setDock("Menu", "Formação", false);
+      renderHeroes();
+    } else if (mode === "roll") {
+      ui.roll.hidden = false;
+      ui.tagline.textContent = state.rollContext === "starter" ? "Escolha inicial" : "Recompensa";
+      setDock("—", "Escolha um herói", true);
+      ui.btnPrimary.classList.add("is-disabled");
+      renderRoll();
+    } else if (mode === "formation") {
+      ui.formation.hidden = false;
+      ui.tagline.textContent = "Monte sua equipe";
+      setDock("Torres", "Ir às torres", false);
+      renderFormation();
+      renderOwnedRoster();
+      showDetailForPick(state.team[state.activeSlot]);
+    } else if (mode === "tower") {
+      ui.tower.hidden = false;
+      ui.tagline.textContent = "Torre de adversários";
+      setDock("Equipe", "Lutar", false);
+      renderTower();
+    } else if (mode === "battle") {
+      ui.battle.hidden = false;
+      ui.tagline.textContent = "Combate";
+      setDock("—", "Pular / Rendição", true);
+    } else if (mode === "result") {
+      ui.result.hidden = false;
+      ui.tagline.textContent = "Fim da luta";
+      setDock("Torres", "Continuar", false);
+    } else if (mode === "reward") {
+      ui.reward.hidden = false;
+      ui.tagline.textContent = "Novo herói";
+      setDock("—", "Decida o destino", true);
+      renderReward();
+    }
+  }
+
+  function renderMenu() {
+    const cont = $("#menu-continue-hint");
+    if (!cont) return;
+    if (state.save && state.save.hasStarter) {
+      cont.hidden = false;
+      cont.textContent =
+        "Progresso: Torre " + state.save.unlockedTower +
+        " · Heróis " + ownedList().length +
+        " · XP " + state.save.xp;
+    } else {
+      cont.hidden = true;
+    }
+  }
+
+  function renderHeroes() {
+    const owned = ownedList();
+    const ownedIds = owned.map(function (e) { return e.id; });
+    ui.heroesList.innerHTML = CHARACTERS.map(function (ch) {
+      const entry = state.save.collection[ch.id];
+      const locked = !entry;
+      return (
+        '<button type="button" class="hero-card' + (locked ? " locked" : "") +
+        (state.selectedHeroId === ch.id ? " active" : "") +
+        '" data-id="' + ch.id + '" style="--tone:' + ch.color + '">' +
+        '<span class="char-glyph">' + (locked ? "?" : ch.glyph) + "</span>" +
+        '<span class="char-name">' + (locked ? "???" : ch.name) + "</span>" +
+        '<span class="char-class">' + (locked ? "Não obtido" : ch.className) + "</span>" +
+        (entry
+          ? '<span class="char-meta">Nv.' + entry.level + " · " + starsHtml(entry.rarity) +
+            " · x" + entry.copies + "</span>"
+          : '<span class="char-meta">Bloqueado</span>') +
+        "</button>"
+      );
+    }).join("");
+
+    if (!state.selectedHeroId || ownedIds.indexOf(state.selectedHeroId) < 0) {
+      state.selectedHeroId = owned[0] ? owned[0].id : null;
+    }
+    renderHeroesDetail();
+  }
+
+  function renderHeroesDetail() {
+    const box = ui.heroesDetailBody;
+    if (!box) return;
+    const entry = state.selectedHeroId ? state.save.collection[state.selectedHeroId] : null;
+    if (!entry) {
+      ui.heroesDetail.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    ui.heroesDetail.hidden = false;
+    const template = getTemplate(entry.id);
+    const preview = createCombatant(entryToPick(entry), "x", "front");
+    const need = copiesNeededForNextStar(entry.rarity);
+    const spare = Math.max(0, entry.copies - 1);
+    const xpNeed = xpToNextLevel(entry.level);
+    box.innerHTML =
+      "<h2>" + template.name + "</h2>" +
+      '<p class="detail-meta">' + template.className + " · Nv." + entry.level + " · " +
+      starsHtml(entry.rarity) + " · " + awakenedLabel(entry.awakened) + "</p>" +
+      '<p class="fuse-line">Cópias: <strong>' + entry.copies +
+      "</strong> · sobrando <strong>" + spare + "</strong>" +
+      (entry.rarity < 5 ? " · próxima estrela precisa <strong>" + need + "</strong>" : " · raridade máx.") +
+      "</p>" +
+      '<div class="heroes-controls">' +
+      '<button type="button" class="btn ghost" data-hero-act="level"' +
+      (!xpNeed || state.save.xp < xpNeed ? " disabled" : "") +
+      ">Subir nível (" + (xpNeed == null ? "máx" : xpNeed + " XP") + ")</button>" +
+      '<button type="button" class="btn ghost" data-hero-act="awaken-up"' +
+      (entry.awakened >= 3 ? " disabled" : "") + ">Despertar +</button>" +
+      '<button type="button" class="btn ghost" data-hero-act="awaken-down"' +
+      (entry.awakened <= 0 ? " disabled" : "") + ">Despertar −</button>" +
+      "</div>" +
+      "<ul class='detail-stats'>" +
+      [["Vida", preview.maxHp], ["Dano", preview.damage], ["Defesa", preview.defense], ["Velocidade", preview.speed]]
+        .map(function (r) { return "<li><span>" + r[0] + "</span><strong>" + r[1] + "</strong></li>"; })
+        .join("") +
+      "</ul>" +
+      '<div class="detail-abilities"><div><span class="ability-tag">Passiva</span><strong>' +
+      preview.passiveName + "</strong><p>" + preview.passiveDesc +
+      '</p></div><div><span class="ability-tag skill">Habilidade</span><strong>' +
+      preview.skill.name + "</strong><p>" + preview.skillDesc + "</p></div></div>";
+  }
+
+  function renderRoll() {
+    if (ui.rollTitle) {
+      ui.rollTitle.textContent = state.rollContext === "starter"
+        ? "Escolha seu primeiro herói"
+        : "Rolete da vitória";
+    }
+    if (ui.rollSubtitle) {
+      ui.rollSubtitle.textContent = state.rollContext === "starter"
+        ? "3 opções · começam em 1★ e nível 1"
+        : "Escolha 1 para colecionar ou vender por XP";
+    }
+    ui.rollChoices.innerHTML = state.rollOptions.map(function (opt, idx) {
+      const ch = getTemplate(opt.id);
+      return (
+        '<button type="button" class="roll-card" data-roll-idx="' + idx + '" style="--tone:' + ch.color + '">' +
+        '<span class="char-glyph">' + ch.glyph + "</span>" +
+        "<strong>" + ch.name + "</strong>" +
+        "<small>" + ch.className + "</small>" +
+        "<span class='stars'>" + starsHtml(1) + "</span>" +
+        "</button>"
+      );
+    }).join("");
+  }
+
+  function renderOwnedRoster() {
+    const owned = ownedList();
+    const used = SLOT_ORDER.map(function (s) { return state.team[s] && state.team[s].id; }).filter(Boolean);
+    ui.roster.classList.add("roster-rail");
+    ui.roster.style.display = "flex";
+    ui.roster.style.flexDirection = "row";
+    ui.roster.style.flexWrap = "nowrap";
+    ui.roster.style.gap = "8px";
+    ui.roster.style.overflowX = "auto";
+    ui.roster.innerHTML = owned.map(function (entry) {
+      const ch = getTemplate(entry.id);
+      const taken = used.indexOf(entry.id) >= 0;
+      return (
+        '<button type="button" class="char-card' + (taken ? " selected" : "") +
+        '" data-id="' + entry.id + '"' + (taken ? " disabled" : "") +
+        ' style="--tone:' + ch.color + ';flex:0 0 104px;width:104px;min-width:104px;">' +
+        '<span class="char-glyph">' + ch.glyph + "</span>" +
+        '<span class="char-name">' + ch.name + "</span>" +
+        '<span class="char-class">' + ch.className + "</span>" +
+        '<span class="char-meta">Nv.' + entry.level + " · " + starsHtml(entry.rarity) + "</span>" +
+        "</button>"
+      );
+    }).join("") || '<p class="empty-roster">Nenhum herói na coleção</p>';
   }
 
   function slotCardHtml(pick) {
@@ -999,95 +1369,51 @@
     );
   }
 
-  function promoteFrontIfNeeded(team) {
-    if (state.teams[team].front) return;
-    for (let i = 0; i < 2; i++) {
-      const slot = "back" + i;
-      if (state.teams[team][slot]) {
-        state.teams[team].front = state.teams[team][slot];
-        state.teams[team][slot] = null;
-        return;
-      }
-    }
-  }
-
-  function clearSlot(team, slot) {
-    state.teams[team][slot] = null;
-    if (slot === "front") promoteFrontIfNeeded(team);
-    if (!state.teams[team].front) state.activeSlot = "front";
-    else if (!state.teams[team][state.activeSlot]) {
-      state.activeSlot = nextEmptySlot(team) || "front";
-    }
-  }
-
   function renderFormation() {
-    const team = state.activeTeam;
-    const front = state.teams[team].front;
+    const front = state.team.front;
     ui.slotsFront.innerHTML =
       '<button type="button" class="slot' +
       (state.activeSlot === "front" ? " active" : "") +
       (front ? " filled" : "") +
-      '" data-slot="front"' +
-      (front ? ' title="Toque 2x para remover"' : "") +
-      '><span class="slot-label">F</span><div class="slot-body">' +
+      '" data-slot="front"><span class="slot-label">F</span><div class="slot-body">' +
       (front ? slotCardHtml(front) : '<span class="slot-empty">Frente (obrigatório)</span>') +
       "</div></button>";
 
     ui.slotsBack.innerHTML = ["back0", "back1"]
       .map(function (slot, i) {
-        const pick = state.teams[team][slot];
+        const pick = state.team[slot];
         return (
           '<button type="button" class="slot' +
           (state.activeSlot === slot ? " active" : "") +
           (pick ? " filled" : "") +
-          '" data-slot="' + slot + '"' +
-          (pick ? ' title="Toque 2x para remover"' : "") +
-          '><span class="slot-label">T' + (i + 1) +
+          '" data-slot="' + slot + '"><span class="slot-label">T' + (i + 1) +
           '</span><div class="slot-body">' +
           (pick ? slotCardHtml(pick) : '<span class="slot-empty">Trás (opcional)</span>') +
           "</div></button>"
         );
       })
       .join("");
-
-    ui.tabA.classList.toggle("active", team === "a");
-    ui.tabB.classList.toggle("active", team === "b");
-    ui.btnPrimary.classList.toggle("is-disabled", !canFight());
-    ui.btnPrimary.setAttribute("aria-disabled", canFight() ? "false" : "true");
-  }
-
-  function syncBuildControls(pick) {
-    ui.buildSlotLabel.textContent = SLOT_LABELS[state.activeSlot] + " · Time " + state.activeTeam.toUpperCase();
-    ui.cfgLevel.value = String(pick.level);
-    ui.cfgLevelVal.textContent = String(pick.level);
-    ui.cfgRarityVal.textContent = starsHtml(pick.rarity);
-    ui.cfgAwakenVal.textContent = awakenedLabel(pick.awakened);
-    ui.cfgRarity.innerHTML = [1, 2, 3, 4, 5]
-      .map(function (n) {
-        return '<button type="button" data-rarity="' + n + '" class="' + (n <= pick.rarity ? "on" : "") + '">★</button>';
-      })
-      .join("");
-    ui.cfgAwaken.innerHTML = [0, 1, 2, 3]
-      .map(function (n) {
-        return '<button type="button" data-awaken="' + n + '" class="' + (n === pick.awakened ? "on" : "") + '">' +
-          (n === 0 ? "Base" : "D" + n) + "</button>";
-      })
-      .join("");
   }
 
   function showDetailForPick(pick) {
     if (!pick) { ui.detail.hidden = true; return; }
+    const src = state.save.collection[pick.id] || {
+      id: pick.id,
+      level: pick.level,
+      rarity: pick.rarity,
+      awakened: pick.awakened,
+      copies: 1,
+    };
     const template = getTemplate(pick.id);
-    const preview = createCombatant(pick, "x", "front");
+    const preview = createCombatant(entryToPick(src), "x", "front");
     ui.detail.hidden = false;
     ui.detailName.textContent = template.name;
     ui.detailMeta.innerHTML =
-      template.className + " · Nv." + pick.level + " · " + renderStars(pick.rarity) + " · " + awakenedLabel(pick.awakened);
-    syncBuildControls(pick);
+      template.className + " · Nv." + preview.level + " · " + starsHtml(preview.rarity) + " · " +
+      awakenedLabel(preview.awakened);
     const rows = [
       ["Vida", preview.maxHp], ["Dano", preview.damage], ["Defesa", preview.defense],
-      ["Velocidade", preview.speed], ["Crit %", Math.round(preview.critChance * 100) + "%"],
-      ["Skill", preview.skill.power ? Math.round(preview.skill.power * 100) + "%" : "Suporte"],
+      ["Velocidade", preview.speed],
     ];
     ui.detailStats.innerHTML = rows
       .map(function (r) { return "<li><span>" + r[0] + "</span><strong>" + r[1] + "</strong></li>"; })
@@ -1098,82 +1424,69 @@
     ui.detailSkillDesc.textContent = preview.skillDesc;
   }
 
-  function renderRoster() {
-    const used = usedIds();
-    // Força trilho horizontal mesmo se CSS externo falhar no preview
-    ui.roster.classList.add("roster-rail");
-    ui.roster.style.display = "flex";
-    ui.roster.style.flexDirection = "row";
-    ui.roster.style.flexWrap = "nowrap";
-    ui.roster.style.gap = "8px";
-    ui.roster.style.overflowX = "auto";
-    ui.roster.style.overflowY = "hidden";
-    ui.roster.style.WebkitOverflowScrolling = "touch";
-    ui.roster.innerHTML = CHARACTERS.map(function (ch) {
-      const taken = used.indexOf(ch.id) >= 0;
+  function renderTower() {
+    const tower = getTower(state.activeTowerId);
+    if (ui.towerTitle) {
+      ui.towerTitle.textContent = tower.name + " · até " + tower.teamSize + " herói(s)";
+    }
+    ui.towerTabs.innerHTML = TOWERS.map(function (t) {
+      const locked = t.id > state.save.unlockedTower;
+      const cleared = currentFloor(t.id);
       return (
-        '<button type="button" class="char-card' + (taken ? " selected" : "") +
-        '" data-id="' + ch.id + '"' + (taken ? " disabled" : "") +
-        ' style="--tone:' + ch.color + ';flex:0 0 104px;width:104px;min-width:104px;max-width:104px;box-sizing:border-box;">' +
-        '<span class="char-glyph">' + ch.glyph + "</span>" +
-        '<span class="char-name">' + ch.name + "</span>" +
-        '<span class="char-class">' + ch.className + "</span>" +
-        '<span class="char-meta">' + (taken ? "Em uso" : "Disponível") + "</span>" +
-        renderStars(ch.defaults.rarity) +
-        "</button>"
+        '<button type="button" class="tower-tab' +
+        (t.id === state.activeTowerId ? " active" : "") +
+        (locked ? " locked" : "") + '" data-tower="' + t.id + '"' +
+        (locked ? " disabled" : "") + ">" +
+        t.name + "<small>" + cleared + "/" + t.floors + "</small></button>"
       );
     }).join("");
+
+    const floor = currentFloor(tower.id);
+    const rows = [];
+    for (let i = tower.floors - 1; i >= 0; i--) {
+      const done = i < floor;
+      const current = i === floor;
+      const locked = i > floor;
+      const lvl = enemyLevelFor(tower, i);
+      rows.push(
+        '<div class="tower-rung' +
+        (done ? " done" : "") +
+        (current ? " current" : "") +
+        (locked ? " locked" : "") +
+        '"><span class="rung-mark">' + (done ? "✓" : current ? "►" : "·") +
+        "</span><div><strong>Andar " + (i + 1) + "</strong><small>" +
+        tower.teamSize + " inimigo(s) · Nv." + lvl + "</small></div></div>"
+      );
+    }
+    ui.towerLadder.innerHTML = rows.join("");
+
+    const canFight = floor < tower.floors && !!state.team.front;
+    ui.btnPrimary.classList.toggle("is-disabled", !canFight);
+    if (floor >= tower.floors) {
+      ui.btnPrimary.textContent = "Torre concluída";
+      ui.btnPrimary.classList.add("is-disabled");
+    } else {
+      ui.btnPrimary.textContent = "Lutar andar " + (floor + 1);
+    }
   }
 
-  function nextEmptySlot(team) {
-    for (let i = 0; i < SLOT_ORDER.length; i++) {
-      if (!state.teams[team][SLOT_ORDER[i]]) return SLOT_ORDER[i];
-    }
-    return null;
+  function renderReward() {
+    const opt = state.pendingReward;
+    if (!opt) return;
+    const ch = getTemplate(opt.id);
+    const xp = sellXpValue(opt.level || 1, opt.rarity || 1);
+    ui.rewardCard.innerHTML =
+      '<div class="roll-card static" style="--tone:' + ch.color + '">' +
+      '<span class="char-glyph">' + ch.glyph + "</span>" +
+      "<strong>" + ch.name + "</strong>" +
+      "<small>" + ch.className + " · Nv." + (opt.level || 1) + "</small>" +
+      "<span class='stars'>" + starsHtml(opt.rarity || 1) + "</span></div>";
+    ui.rewardActions.innerHTML =
+      '<button type="button" class="btn primary" data-reward="keep">Adicionar à coleção</button>' +
+      '<button type="button" class="btn ghost" data-reward="sell">Vender por ' + xp + " XP</button>";
   }
 
-  function pickCharacter(id) {
-    if (usedIds().indexOf(id) >= 0) {
-      // focus existing
-      const found = allPicks().find(function (x) { return x.pick.id === id; });
-      if (found) {
-        state.activeTeam = found.team;
-        state.activeSlot = found.slot;
-        renderFormation();
-        renderRoster();
-        showDetailForPick(found.pick);
-      }
-      return;
-    }
-    // Sempre preencher a frente antes das costas
-    let slot = state.activeSlot;
-    if (slot !== "front" && !state.teams[state.activeTeam].front) {
-      slot = "front";
-      state.activeSlot = "front";
-    }
-    if (teamCount(state.activeTeam) >= 3 && state.teams[state.activeTeam][slot]) {
-      showToast("Máximo de 3 heróis por time");
-      return;
-    }
-    state.teams[state.activeTeam][slot] = makePick(id);
-    const placed = slot;
-    const next = nextEmptySlot(state.activeTeam);
-    if (next) state.activeSlot = next;
-    renderFormation();
-    renderRoster();
-    showDetailForPick(state.teams[state.activeTeam][placed]);
-  }
-
-  function updateActiveBuild(partial) {
-    const pick = activePick();
-    if (!pick) return;
-    if (partial.level != null) pick.level = clamp(partial.level, 1, 50);
-    if (partial.rarity != null) pick.rarity = clamp(partial.rarity, 1, 5);
-    if (partial.awakened != null) pick.awakened = clamp(partial.awakened, 0, 3);
-    renderFormation();
-    showDetailForPick(pick);
-  }
-
+  /* ----- battle visuals (reuse) ----- */
   function fighterCardHtml(f) {
     const lineClass = f.line === "front" ? "front-liner" : "back-liner";
     return (
@@ -1205,12 +1518,8 @@
     const front = fighters.find(function (f) { return f.slot === "front"; });
     const back = fighters.filter(function (f) { return f.line === "back"; });
     return (
-      '<div class="line-back" aria-label="Linha de trás">' +
-      back.map(fighterCardHtml).join("") +
-      "</div>" +
-      '<div class="line-front" aria-label="Linha de frente">' +
-      (front ? fighterCardHtml(front) : "") +
-      "</div>"
+      '<div class="line-back" aria-label="Linha de trás">' + back.map(fighterCardHtml).join("") + "</div>" +
+      '<div class="line-front" aria-label="Linha de frente">' + (front ? fighterCardHtml(front) : "") + "</div>"
     );
   }
 
@@ -1236,37 +1545,18 @@
     const badge = $("#fighter-" + uid + "-heal-badge");
     const count = $("#fighter-" + uid + "-heal-count");
     if (!sprite || !badge) return;
-
     const timed = getHealBuffSeconds(f);
     const active = isReceivingHealRecovery(f);
     sprite.classList.toggle("heal-aura", active);
     badge.hidden = !active;
     if (!active || !count) return;
-
     if (timed > 0) {
       count.hidden = false;
       count.textContent = String(Math.max(1, Math.ceil(timed)));
     } else {
-      // Aura passiva do suporte: + sem countdown fixo
       count.hidden = true;
       count.textContent = "";
     }
-  }
-
-  function updateUnitBars(f) {
-    const uid = f.uid;
-    const hpEl = $("#fighter-" + uid + "-hp-fill");
-    if (!hpEl) return;
-    hpEl.style.width = (f.hp / f.maxHp) * 100 + "%";
-    $("#fighter-" + uid + "-mana-fill").style.width = (f.mana / f.manaMax) * 100 + "%";
-    $("#fighter-" + uid + "-stamina-fill").style.width = (f.stamina / f.staminaMax) * 100 + "%";
-    $("#fighter-" + uid + "-hp-text").textContent =
-      Math.ceil(f.hp) + "/" + f.maxHp + (f.shield ? " +" + f.shield : "");
-    $("#fighter-" + uid + "-mana-text").textContent = f.mana + "/" + f.manaMax;
-    const card = $("#fighter-" + uid);
-    if (card) card.classList.toggle("dead", !f.alive);
-    syncShieldVisual(uid, f.shield);
-    syncHealBuffVisual(f);
   }
 
   function showShieldBubble(uid, on) {
@@ -1316,6 +1606,22 @@
     state.prevShield[uid] = current;
   }
 
+  function updateUnitBars(f) {
+    const uid = f.uid;
+    const hpEl = $("#fighter-" + uid + "-hp-fill");
+    if (!hpEl) return;
+    hpEl.style.width = (f.hp / f.maxHp) * 100 + "%";
+    $("#fighter-" + uid + "-mana-fill").style.width = (f.mana / f.manaMax) * 100 + "%";
+    $("#fighter-" + uid + "-stamina-fill").style.width = (f.stamina / f.staminaMax) * 100 + "%";
+    $("#fighter-" + uid + "-hp-text").textContent =
+      Math.ceil(f.hp) + "/" + f.maxHp + (f.shield ? " +" + f.shield : "");
+    $("#fighter-" + uid + "-mana-text").textContent = f.mana + "/" + f.manaMax;
+    const card = $("#fighter-" + uid);
+    if (card) card.classList.toggle("dead", !f.alive);
+    syncShieldVisual(uid, f.shield);
+    syncHealBuffVisual(f);
+  }
+
   function pulseFighter(unit, cls, ms) {
     const el = $("#fighter-" + unit.uid);
     if (!el) return;
@@ -1331,7 +1637,6 @@
     const fromEl = $("#fighter-" + fromUnit.uid + "-avatar") || $("#fighter-" + fromUnit.uid + "-sprite");
     const toEl = $("#fighter-" + toUnit.uid + "-avatar") || $("#fighter-" + toUnit.uid + "-sprite");
     if (!fromEl || !toEl) return;
-
     const layerRect = layer.getBoundingClientRect();
     const from = fromEl.getBoundingClientRect();
     const to = toEl.getBoundingClientRect();
@@ -1341,28 +1646,21 @@
     const y2 = to.top + to.height / 2 - layerRect.top;
     const dist = Math.max(28, Math.hypot(x2 - x1, y2 - y1));
     const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
-
     const slash = document.createElement("div");
-    slash.className = "slash aimed " + styleKind + (styleKind === "buff" || styleKind === "debuff" || styleKind === "heal"
-      ? ""
-      : " from-" + fromUnit.team);
+    slash.className = "slash aimed " + styleKind +
+      (styleKind === "buff" || styleKind === "debuff" || styleKind === "heal" ? "" : " from-" + fromUnit.team);
     if (styleKind === "skill") slash.classList.add("skill");
     slash.style.left = x1 + "px";
     slash.style.top = y1 + "px";
     slash.style.width = dist + "px";
     slash.style.setProperty("--slash-angle", angle + "deg");
     layer.appendChild(slash);
-
     const mark = document.createElement("div");
     mark.className = "slash-mark " + styleKind;
     mark.style.left = x2 + "px";
     mark.style.top = y2 + "px";
     layer.appendChild(mark);
-
-    window.setTimeout(function () {
-      slash.remove();
-      mark.remove();
-    }, 480);
+    window.setTimeout(function () { slash.remove(); mark.remove(); }, 480);
   }
 
   function playAttackMotion(unit, kind, target) {
@@ -1372,17 +1670,14 @@
     void el.offsetWidth;
     el.classList.add("attacking");
     window.setTimeout(function () { el.classList.remove("attacking"); }, 340);
-
     if (!target) return;
     pulseFighter(target, "targeted", 520);
-    const style = kind === "heal" ? "heal" : kind === "skill" ? "skill" : "basic";
-    playAimedBeam(unit, target, style);
+    playAimedBeam(unit, target, kind === "heal" ? "heal" : kind === "skill" ? "skill" : "basic");
   }
 
   function playStatusMotion(source, kind, targets) {
     const list = (targets || []).filter(Boolean);
     if (!list.length) return;
-
     const srcEl = $("#fighter-" + source.uid);
     if (srcEl) {
       srcEl.classList.remove("attacking");
@@ -1390,17 +1685,14 @@
       srcEl.classList.add("attacking");
       window.setTimeout(function () { srcEl.classList.remove("attacking"); }, 340);
     }
-
     const pulseCls = kind === "buff" ? "buffed" : "debuffed";
     list.forEach(function (target, i) {
       window.setTimeout(function () {
         pulseFighter(target, pulseCls, 560);
-        // Auto-buff: anel no próprio herói; senão linha até o alvo
         if (target.uid === source.uid) {
           const avatar = $("#fighter-" + target.uid + "-avatar");
-          if (!avatar) return;
           const layer = $("#slash-layer");
-          if (!layer) return;
+          if (!avatar || !layer) return;
           const layerRect = layer.getBoundingClientRect();
           const rect = avatar.getBoundingClientRect();
           const ring = document.createElement("div");
@@ -1443,8 +1735,7 @@
       kind === "skill" ? "Habilidade!" :
       kind === "heal" ? "Cura" :
       kind === "buff" ? "Buff" :
-      kind === "debuff" ? "Debuff" :
-      "Ataque";
+      kind === "debuff" ? "Debuff" : "Ataque";
   }
 
   function appendLog(entry) {
@@ -1455,49 +1746,44 @@
     while (ui.log.children.length > 50) ui.log.lastChild.remove();
   }
 
-  function showScreen(mode) {
-    state.mode = mode;
-    ui.select.hidden = mode !== "select";
-    ui.battle.hidden = mode !== "battle";
-    ui.result.hidden = mode !== "result";
-    if (mode === "select") {
-      ui.tagline.textContent = "1–3 heróis · frente obrigatória";
-      ui.btnPrimary.textContent = "Iniciar luta";
-      ui.btnSwap.hidden = false;
-    } else if (mode === "battle") {
-      ui.tagline.textContent = "Combate";
-      ui.btnPrimary.textContent = "Pular / Rendição";
-      ui.btnSwap.hidden = true;
-    } else {
-      ui.tagline.textContent = "Fim da luta";
-      ui.btnPrimary.textContent = "Nova luta";
-      ui.btnSwap.hidden = true;
-    }
-    ui.btnPrimary.classList.toggle("is-disabled", mode === "select" && !canFight());
-    ui.btnPrimary.removeAttribute("disabled");
-  }
-
   function stopBattleLoop() {
     if (state.raf) cancelAnimationFrame(state.raf);
     state.raf = 0;
   }
 
-  function buildTeam(teamKey) {
-    return SLOT_ORDER.filter(function (slot) {
-      return !!state.teams[teamKey][slot];
+  function buildCombatTeam(teamObj, teamKey, maxSize) {
+    return SLOT_ORDER.slice(0, maxSize).filter(function (slot) {
+      return !!teamObj[slot];
     }).map(function (slot) {
-      return createCombatant(state.teams[teamKey][slot], teamKey, slot);
+      return createCombatant(teamObj[slot], teamKey, slot);
     });
   }
 
-  function startBattle() {
-    if (!canFight()) {
-      showToast("Cada time precisa de 1–3 heróis e alguém na frente");
+  function startTowerFight() {
+    const tower = getTower(state.activeTowerId);
+    const floor = currentFloor(tower.id);
+    if (floor >= tower.floors) {
+      showToast("Esta torre já foi concluída");
       return;
     }
+    if (!state.team.front) {
+      showToast("Coloque alguém na frente");
+      return;
+    }
+    const playerTeam = playerTeamForFight(tower.teamSize);
+    if (!playerTeam.front) {
+      showToast("Equipe inválida para esta torre");
+      return;
+    }
+    if (teamCountLocal(playerTeam) > tower.teamSize) {
+      showToast("Esta torre aceita no máximo " + tower.teamSize + " herói(s)");
+      return;
+    }
+    // trim extras beyond tower size already done by playerTeamForFight
+    state.enemyTeam = buildEnemyTeam(tower, floor);
     try {
-      const teamA = buildTeam("a");
-      const teamB = buildTeam("b");
+      const teamA = buildCombatTeam(playerTeam, "a", tower.teamSize);
+      const teamB = buildCombatTeam(state.enemyTeam, "b", tower.teamSize);
       state.prevShield = {};
       state.shieldBreakLock = {};
       state.hasteAnnounced = false;
@@ -1507,8 +1793,7 @@
       teamA.concat(teamB).forEach(updateUnitBars);
       updateBattleTimer(0, false);
       showScreen("battle");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      showToast("Time A vs Time B");
+      showToast(tower.name + " · Andar " + (floor + 1));
 
       state.battle = new Battle(teamA, teamB, {
         onLog: appendLog,
@@ -1536,26 +1821,10 @@
         },
         onEnd: function (winnerTeam) {
           stopBattleLoop();
-          if (!winnerTeam) {
-            ui.resultName.textContent = "Empate";
-            ui.resultSummary.textContent =
-              "Os dois times caíram em " + Math.max(1, Math.round(state.battle.elapsed)) + "s.";
-          } else {
-            const survivors = (winnerTeam === "a" ? state.battle.teamA : state.battle.teamB)
-              .filter(function (f) { return f.alive; })
-              .map(function (f) { return f.name; })
-              .join(", ");
-            ui.resultName.textContent = "Time " + winnerTeam.toUpperCase();
-            ui.resultSummary.textContent =
-              "Vitória em " +
-              Math.max(1, Math.round(state.battle.elapsed)) +
-              "s." +
-              (survivors ? " Em pé: " + survivors + "." : "");
-          }
           const delay = Object.keys(state.shieldBreakLock).some(function (k) {
             return state.shieldBreakLock[k];
           }) ? 700 : 400;
-          window.setTimeout(function () { showScreen("result"); }, delay);
+          window.setTimeout(function () { finishBattle(winnerTeam); }, delay);
         },
       });
 
@@ -1569,8 +1838,7 @@
           state.hasteAnnounced = true;
           showToast("30s! Combate acelerado 4×");
         }
-        const dt = rawDt * (hasted ? HASTE_MULT : 1);
-        state.battle.tick(dt);
+        state.battle.tick(rawDt * (hasted ? HASTE_MULT : 1));
         updateBattleTimer(state.battle.elapsed, hasted);
         state.raf = requestAnimationFrame(loop);
       };
@@ -1581,146 +1849,260 @@
     }
   }
 
+  function finishBattle(winnerTeam) {
+    const won = winnerTeam === "a";
+    if (won) {
+      const tower = getTower(state.activeTowerId);
+      const floor = currentFloor(tower.id);
+      state.save.floorsCleared[tower.id] = floor + 1;
+      if (floor + 1 >= tower.floors && state.save.unlockedTower < 3 && tower.id === state.save.unlockedTower) {
+        state.save.unlockedTower = Math.min(3, tower.id + 1);
+        showToast("Nova torre desbloqueada!");
+      }
+      persist();
+      ui.resultName.textContent = "Vitória";
+      ui.resultSummary.textContent =
+        tower.name + " · Andar " + (floor + 1) + " limpo. Rolete um novo herói!";
+      showScreen("result");
+      ui.btnPrimary.textContent = "Roletar herói";
+      ui.btnSecondary.textContent = "Torres";
+      state._resultWin = true;
+    } else {
+      ui.resultName.textContent = winnerTeam ? "Derrota" : "Empate";
+      ui.resultSummary.textContent = "Reorganize a equipe e tente de novo.";
+      showScreen("result");
+      ui.btnPrimary.textContent = "Torres";
+      ui.btnSecondary.textContent = "Equipe";
+      state._resultWin = false;
+    }
+  }
+
   function endEarly() {
     if (!state.battle || state.battle.over) return;
     stopBattleLoop();
-    const aAlive = state.battle.teamA.filter(function (f) { return f.alive; });
-    const bAlive = state.battle.teamB.filter(function (f) { return f.alive; });
-    // Rendição: vence quem ainda tem mais membros vivos (empate por HP%)
-    let winner = null;
-    if (aAlive.length !== bAlive.length) {
-      winner = aAlive.length > bAlive.length ? "a" : "b";
-    } else {
-      const aHp = aAlive.reduce(function (s, f) { return s + f.hp / f.maxHp; }, 0);
-      const bHp = bAlive.reduce(function (s, f) { return s + f.hp / f.maxHp; }, 0);
-      if (aHp === bHp) winner = null;
-      else winner = aHp > bHp ? "a" : "b";
-    }
     state.battle.over = true;
-    if (!winner) {
-      ui.resultName.textContent = "Empate";
-      ui.resultSummary.textContent = "Luta encerrada sem vantagem clara.";
-    } else {
-      ui.resultName.textContent = "Time " + winner.toUpperCase();
-      ui.resultSummary.textContent =
-        "Luta encerrada. Vivos — A: " + aAlive.length + " · B: " + bAlive.length + ".";
-    }
-    showScreen("result");
+    finishBattle("b");
   }
 
-  function resetToSelect() {
-    stopBattleLoop();
-    state.battle = null;
-    showScreen("select");
+  function beginStarterRoll() {
+    state.save = defaultSave();
+    state.team = emptyTeam();
+    state.rollContext = "starter";
+    state.rollOptions = makeRollOptions(3);
+    persist();
+    showScreen("roll");
+  }
+
+  function beginRewardRoll() {
+    state.rollContext = "reward";
+    state.rollOptions = makeRollOptions(3);
+    // For reward after win, user asked to roll a new hero - show 3 pick 1, then keep/sell
+    // Simplify: pick one of 3, then that becomes pending for keep/sell
+    showScreen("roll");
+  }
+
+  function chooseRoll(idx) {
+    const opt = state.rollOptions[idx];
+    if (!opt) return;
+    if (state.rollContext === "starter") {
+      addHeroToCollection(opt.id, { level: 1, awakened: 0 });
+      state.save.hasStarter = true;
+      state.team.front = entryToPick(state.save.collection[opt.id]);
+      persist();
+      showToast(getTemplate(opt.id).name + " entrou para sua equipe!");
+      showScreen("formation");
+      return;
+    }
+    // reward: go to keep/sell screen for this pick
+    state.pendingReward = opt;
+    showScreen("reward");
+  }
+
+  function keepReward() {
+    const opt = state.pendingReward;
+    if (!opt) return;
+    const res = addHeroToCollection(opt.id, { level: opt.level || 1 });
+    persist();
+    const name = getTemplate(opt.id).name;
+    if (res.created) showToast(name + " adicionado à coleção");
+    else if (res.fused) showToast(name + " fundido! Agora " + starsHtml(res.entry.rarity));
+    else showToast("Cópia de " + name + " guardada");
+    state.pendingReward = null;
+    showScreen("tower");
+  }
+
+  function sellReward() {
+    const opt = state.pendingReward;
+    if (!opt) return;
+    const xp = sellXpValue(opt.level || 1, opt.rarity || 1);
+    state.save.xp += xp;
+    persist();
+    showToast("+" + xp + " XP");
+    state.pendingReward = null;
+    showScreen("heroes");
+  }
+
+  function placeOwnedHero(id) {
+    if (!state.save.collection[id]) return;
+    if (SLOT_ORDER.some(function (s) { return state.team[s] && state.team[s].id === id; })) {
+      showToast("Já está na equipe");
+      return;
+    }
+    let slot = state.activeSlot;
+    if (slot !== "front" && !state.team.front) slot = "front";
+    state.team[slot] = entryToPick(state.save.collection[id]);
+    const next = SLOT_ORDER.find(function (s) { return !state.team[s]; });
+    if (next) state.activeSlot = next;
+    persist();
     renderFormation();
-    renderRoster();
-    showDetailForPick(activePick());
+    renderOwnedRoster();
+    showDetailForPick(state.team[slot]);
   }
 
   function bind() {
-    ui.roster.addEventListener("click", function (e) {
-      const btn = e.target.closest(".char-card");
-      if (!btn || btn.disabled || state.mode !== "select") return;
-      pickCharacter(btn.getAttribute("data-id"));
+    document.body.addEventListener("click", function (e) {
+      const menuNew = e.target.closest("[data-menu='new']");
+      const menuHeroes = e.target.closest("[data-menu='heroes']");
+      const menuContinue = e.target.closest("[data-menu='continue']");
+      if (menuNew) { beginStarterRoll(); return; }
+      if (menuHeroes) { showScreen("heroes"); return; }
+      if (menuContinue) {
+        if (state.save.hasStarter) showScreen("formation");
+        else beginStarterRoll();
+        return;
+      }
+
+      const heroCard = e.target.closest("#heroes-list .hero-card");
+      if (heroCard && state.mode === "heroes") {
+        if (heroCard.classList.contains("locked")) {
+          showToast("Ainda não obtido");
+          return;
+        }
+        state.selectedHeroId = heroCard.getAttribute("data-id");
+        renderHeroes();
+        return;
+      }
+
+      const heroAct = e.target.closest("[data-hero-act]");
+      if (heroAct && state.mode === "heroes") {
+        const entry = state.save.collection[state.selectedHeroId];
+        if (!entry) return;
+        const act = heroAct.getAttribute("data-hero-act");
+        if (act === "level") {
+          const need = xpToNextLevel(entry.level);
+          if (need == null) return;
+          if (state.save.xp < need) { showToast("XP insuficiente"); return; }
+          state.save.xp -= need;
+          entry.level += 1;
+          persist();
+          showToast(getTemplate(entry.id).name + " → Nv." + entry.level);
+          renderHeroes();
+          syncTeamFromSave();
+        } else if (act === "awaken-up" && entry.awakened < 3) {
+          entry.awakened += 1;
+          persist();
+          renderHeroes();
+          syncTeamFromSave();
+        } else if (act === "awaken-down" && entry.awakened > 0) {
+          entry.awakened -= 1;
+          persist();
+          renderHeroes();
+          syncTeamFromSave();
+        }
+        return;
+      }
+
+      const rollCard = e.target.closest("[data-roll-idx]");
+      if (rollCard && state.mode === "roll") {
+        chooseRoll(Number(rollCard.getAttribute("data-roll-idx")));
+        return;
+      }
+
+      const rewardBtn = e.target.closest("[data-reward]");
+      if (rewardBtn && state.mode === "reward") {
+        if (rewardBtn.getAttribute("data-reward") === "keep") keepReward();
+        else sellReward();
+        return;
+      }
+
+      const towerTab = e.target.closest("[data-tower]");
+      if (towerTab && state.mode === "tower") {
+        state.activeTowerId = Number(towerTab.getAttribute("data-tower"));
+        renderTower();
+        return;
+      }
+
+      const rosterCard = e.target.closest("#roster .char-card");
+      if (rosterCard && state.mode === "formation" && !rosterCard.disabled) {
+        placeOwnedHero(rosterCard.getAttribute("data-id"));
+        return;
+      }
     });
 
     ui.slotsFront.addEventListener("click", onSlotClick);
     ui.slotsBack.addEventListener("click", onSlotClick);
-
-    // Duplo toque no mesmo slot preenchido remove o herói
     const slotTap = { key: "", t: 0 };
-    const DOUBLE_TAP_MS = 380;
-
     function onSlotClick(e) {
       const btn = e.target.closest(".slot");
-      if (!btn || state.mode !== "select") return;
+      if (!btn || state.mode !== "formation") return;
       const slot = btn.getAttribute("data-slot");
-      const key = state.activeTeam + ":" + slot;
+      const key = slot;
       const now = Date.now();
-      const pick = state.teams[state.activeTeam][slot];
-
-      if (pick && slotTap.key === key && now - slotTap.t <= DOUBLE_TAP_MS) {
+      const pick = state.team[slot];
+      if (pick && slotTap.key === key && now - slotTap.t <= 380) {
         slotTap.key = "";
-        slotTap.t = 0;
-        const name = getTemplate(pick.id).name;
-        clearSlot(state.activeTeam, slot);
+        clearPlayerSlot(slot);
         renderFormation();
-        renderRoster();
-        showDetailForPick(activePick());
-        showToast(name + " removido");
+        renderOwnedRoster();
+        showDetailForPick(state.team[state.activeSlot]);
+        showToast("Removido da equipe");
         return;
       }
-
       slotTap.key = key;
       slotTap.t = now;
       state.activeSlot = slot;
       renderFormation();
-      const selected = activePick();
-      if (selected) showDetailForPick(selected);
-      else ui.detail.hidden = true;
+      showDetailForPick(state.team[slot]);
     }
 
-    ui.tabA.addEventListener("click", function () {
-      state.activeTeam = "a";
-      state.activeSlot = nextEmptySlot("a") || "front";
-      renderFormation();
-      showDetailForPick(activePick());
-      renderRoster();
-    });
-    ui.tabB.addEventListener("click", function () {
-      state.activeTeam = "b";
-      state.activeSlot = nextEmptySlot("b") || "front";
-      renderFormation();
-      showDetailForPick(activePick());
-      renderRoster();
-    });
-
-    ui.btnSwap.addEventListener("click", function () {
-      const tmp = state.teams.a;
-      state.teams.a = state.teams.b;
-      state.teams.b = tmp;
-      renderFormation();
-      renderRoster();
-      showDetailForPick(activePick());
-      showToast("Times trocados");
-    });
-
-    ui.cfgLevel.addEventListener("input", function () {
-      updateActiveBuild({ level: Number(ui.cfgLevel.value) });
-    });
-    ui.cfgRarity.addEventListener("click", function (e) {
-      const btn = e.target.closest("button[data-rarity]");
-      if (btn) updateActiveBuild({ rarity: Number(btn.getAttribute("data-rarity")) });
-    });
-    ui.cfgAwaken.addEventListener("click", function (e) {
-      const btn = e.target.closest("button[data-awaken]");
-      if (btn) updateActiveBuild({ awakened: Number(btn.getAttribute("data-awaken")) });
-    });
-
     ui.btnPrimary.addEventListener("click", function () {
-      if (state.mode === "select") startBattle();
-      else if (state.mode === "battle") endEarly();
-      else resetToSelect();
+      if (ui.btnPrimary.classList.contains("is-disabled")) return;
+      if (state.mode === "menu") {
+        if (state.save.hasStarter) showScreen("formation");
+        else beginStarterRoll();
+      } else if (state.mode === "heroes") {
+        showScreen("formation");
+      } else if (state.mode === "formation") {
+        showScreen("tower");
+      } else if (state.mode === "tower") {
+        startTowerFight();
+      } else if (state.mode === "battle") {
+        endEarly();
+      } else if (state.mode === "result") {
+        if (state._resultWin) beginRewardRoll();
+        else showScreen("tower");
+      }
+    });
+
+    ui.btnSecondary.addEventListener("click", function () {
+      if (state.mode === "menu") showScreen("heroes");
+      else if (state.mode === "heroes") showScreen("menu");
+      else if (state.mode === "formation") showScreen("tower");
+      else if (state.mode === "tower") showScreen("formation");
+      else if (state.mode === "result") {
+        if (state._resultWin) showScreen("tower");
+        else showScreen("formation");
+      }
     });
   }
 
   function init() {
-    // Time A padrão
-    state.teams.a.front = makePick("gareth", { level: 12, rarity: 4, awakened: 1 });
-    state.teams.a.back0 = makePick("lyra", { level: 12, rarity: 4, awakened: 0 });
-    state.teams.a.back1 = makePick("mira", { level: 12, rarity: 3, awakened: 0 });
-    // Time B padrão
-    state.teams.b.front = makePick("rook", { level: 12, rarity: 4, awakened: 1 });
-    state.teams.b.back0 = makePick("nyx", { level: 12, rarity: 4, awakened: 0 });
-    state.teams.b.back1 = makePick("brutus", { level: 12, rarity: 3, awakened: 1 });
-
-    state.activeTeam = "a";
-    state.activeSlot = "front";
+    state.save = loadSave();
+    syncTeamFromSave();
+    state.activeTowerId = state.save.unlockedTower || 1;
     bind();
-    renderFormation();
-    renderRoster();
-    showDetailForPick(activePick());
-    showScreen("select");
+    syncXpBadge();
+    showScreen("menu");
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

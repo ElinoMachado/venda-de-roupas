@@ -64,6 +64,21 @@ button {
 .topbar {
   text-align: center;
   padding: 8px 4px 0;
+  position: relative;
+}
+
+.xp-badge {
+  position: absolute;
+  top: 10px;
+  right: 4px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a120c;
+  background: linear-gradient(180deg, #ffd089, #e0a03a);
+  border-radius: 999px;
+  padding: 4px 8px;
 }
 
 .brand {
@@ -1361,6 +1376,222 @@ button {
 .screen-result p:last-child {
   color: var(--muted);
   margin: 0;
+}
+
+/* Campanha */
+.menu-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.menu-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, #352b22, #241d17);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.menu-btn.primary {
+  color: #1a120c;
+  background: linear-gradient(180deg, var(--ember-2), var(--ember));
+  border-color: transparent;
+}
+
+.menu-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 8px 0 0;
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.section-sub {
+  margin: 0 0 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.heroes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hero-card {
+  border: 1px solid var(--line);
+  background: linear-gradient(165deg, #352b22, #241d17);
+  border-radius: var(--radius);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.hero-card.active {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 1px rgba(224, 122, 58, 0.35);
+}
+
+.hero-card.locked {
+  opacity: 0.45;
+  filter: grayscale(0.5);
+}
+
+.heroes-controls {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.fuse-line {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.roll-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.roll-card {
+  border: 1px solid var(--line);
+  background: linear-gradient(165deg, #352b22, #241d17);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
+}
+
+.roll-card.static {
+  pointer-events: none;
+}
+
+.roll-card .char-glyph {
+  width: 52px;
+  height: 52px;
+}
+
+.tower-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tower-tab {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+}
+
+.tower-tab small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.tower-tab.active {
+  color: #1a120c;
+  background: linear-gradient(180deg, var(--ember-2), var(--ember));
+  border-color: transparent;
+}
+
+.tower-tab.locked {
+  opacity: 0.4;
+}
+
+.tower-ladder {
+  display: grid;
+  gap: 8px;
+  padding: 8px 4px 12px;
+}
+
+.tower-rung {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(90deg, #2a221b, #1e1813);
+}
+
+.tower-rung .rung-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--muted);
+}
+
+.tower-rung strong {
+  display: block;
+  font-family: var(--font-display);
+}
+
+.tower-rung small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.tower-rung.current {
+  border-color: rgba(240, 163, 94, 0.55);
+  box-shadow: 0 0 16px rgba(224, 122, 58, 0.2);
+}
+
+.tower-rung.current .rung-mark {
+  background: linear-gradient(180deg, var(--ember-2), var(--ember));
+  color: #1a120c;
+}
+
+.tower-rung.done {
+  opacity: 0.55;
+}
+
+.tower-rung.done .rung-mark {
+  color: #8dffb0;
+}
+
+.tower-rung.locked {
+  opacity: 0.35;
+}
+
+.reward-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.empty-roster {
+  color: var(--muted);
+  padding: 12px;
 }
 
 /* Dock */

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles/style.css?v=25" />
+  <link rel="stylesheet" href="/styles/style.css?v=26" />
   <style id="arena-inline-css">
 :root {
   --bg0: #1a1612;
@@ -76,6 +76,21 @@ button {
 .topbar {
   text-align: center;
   padding: 8px 4px 0;
+  position: relative;
+}
+
+.xp-badge {
+  position: absolute;
+  top: 10px;
+  right: 4px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a120c;
+  background: linear-gradient(180deg, #ffd089, #e0a03a);
+  border-radius: 999px;
+  padding: 4px 8px;
 }
 
 .brand {
@@ -1375,6 +1390,222 @@ button {
   margin: 0;
 }
 
+/* Campanha */
+.menu-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.menu-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, #352b22, #241d17);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.menu-btn.primary {
+  color: #1a120c;
+  background: linear-gradient(180deg, var(--ember-2), var(--ember));
+  border-color: transparent;
+}
+
+.menu-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 8px 0 0;
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.section-sub {
+  margin: 0 0 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.heroes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hero-card {
+  border: 1px solid var(--line);
+  background: linear-gradient(165deg, #352b22, #241d17);
+  border-radius: var(--radius);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.hero-card.active {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 1px rgba(224, 122, 58, 0.35);
+}
+
+.hero-card.locked {
+  opacity: 0.45;
+  filter: grayscale(0.5);
+}
+
+.heroes-controls {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.fuse-line {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.roll-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.roll-card {
+  border: 1px solid var(--line);
+  background: linear-gradient(165deg, #352b22, #241d17);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
+}
+
+.roll-card.static {
+  pointer-events: none;
+}
+
+.roll-card .char-glyph {
+  width: 52px;
+  height: 52px;
+}
+
+.tower-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tower-tab {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+}
+
+.tower-tab small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.tower-tab.active {
+  color: #1a120c;
+  background: linear-gradient(180deg, var(--ember-2), var(--ember));
+  border-color: transparent;
+}
+
+.tower-tab.locked {
+  opacity: 0.4;
+}
+
+.tower-ladder {
+  display: grid;
+  gap: 8px;
+  padding: 8px 4px 12px;
+}
+
+.tower-rung {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(90deg, #2a221b, #1e1813);
+}
+
+.tower-rung .rung-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--muted);
+}
+
+.tower-rung strong {
+  display: block;
+  font-family: var(--font-display);
+}
+
+.tower-rung small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.tower-rung.current {
+  border-color: rgba(240, 163, 94, 0.55);
+  box-shadow: 0 0 16px rgba(224, 122, 58, 0.2);
+}
+
+.tower-rung.current .rung-mark {
+  background: linear-gradient(180deg, var(--ember-2), var(--ember));
+  color: #1a120c;
+}
+
+.tower-rung.done {
+  opacity: 0.55;
+}
+
+.tower-rung.done .rung-mark {
+  color: #8dffb0;
+}
+
+.tower-rung.locked {
+  opacity: 0.35;
+}
+
+.reward-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.empty-roster {
+  color: var(--muted);
+  padding: 12px;
+}
+
 /* Dock */
 .dock {
   position: fixed;
@@ -1720,73 +1951,57 @@ button {
   <div class="app">
     <header class="topbar">
       <p class="brand">Arena RPG</p>
-      <p class="tagline" id="screen-tagline">1–3 heróis · frente obrigatória</p>
+      <p class="tagline" id="screen-tagline">Escolha seu caminho</p>
+      <p class="xp-badge" id="xp-badge">XP 0</p>
     </header>
 
-    <!-- Seleção -->
-    <section id="screen-select" class="screen screen-select">
-      <div class="team-switch" role="tablist">
-        <button type="button" class="team-tab active" data-team="a" id="tab-a">Time A</button>
-        <button type="button" class="team-tab" data-team="b" id="tab-b">Time B</button>
+    <!-- Menu -->
+    <section id="screen-menu" class="screen screen-menu">
+      <div class="menu-stack">
+        <button type="button" class="menu-btn primary" data-menu="new">Novo jogo</button>
+        <button type="button" class="menu-btn" data-menu="continue">Continuar</button>
+        <button type="button" class="menu-btn" data-menu="heroes">Heróis</button>
+        <p class="menu-hint" id="menu-continue-hint" hidden></p>
       </div>
+    </section>
 
+    <!-- Coleção / Heróis -->
+    <section id="screen-heroes" class="screen screen-heroes" hidden>
+      <div class="heroes-grid" id="heroes-list"></div>
+      <div class="detail heroes-detail" id="heroes-detail" hidden>
+        <div id="heroes-detail-body"></div>
+      </div>
+    </section>
+
+    <!-- Roll 3 escolhas -->
+    <section id="screen-roll" class="screen screen-roll" hidden>
+      <h2 class="section-title" id="roll-title">Escolha seu herói</h2>
+      <p class="section-sub" id="roll-subtitle">3 opções</p>
+      <div class="roll-choices" id="roll-choices"></div>
+    </section>
+
+    <!-- Formação -->
+    <section id="screen-formation" class="screen screen-formation" hidden>
       <div class="formation" id="formation">
         <div class="formation-line">
           <p class="formation-label">Linha de frente <span>(obrigatória)</span></p>
           <div class="formation-slots front-slots" id="slots-front"></div>
         </div>
         <div class="formation-line">
-          <p class="formation-label">Linha de trás <span>(até 2, opcional)</span></p>
+          <p class="formation-label">Linha de trás <span>(até 2)</span></p>
           <div class="formation-slots back-slots" id="slots-back"></div>
         </div>
-        <p class="formation-hint">Toque 2x no herói para remover</p>
+        <p class="formation-hint">Toque 2x para remover · Nível/raridade só em Heróis</p>
       </div>
 
       <div class="roster-wrap">
-        <div
-          class="roster roster-rail"
-          id="roster"
-          role="list"
-          style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"
-        ></div>
+        <div class="roster roster-rail" id="roster" role="list"
+          style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"></div>
       </div>
 
       <div class="detail" id="detail" hidden>
         <h2 id="detail-name"></h2>
         <p id="detail-meta" class="detail-meta"></p>
-
-        <div class="build-panel" id="build-panel">
-          <p class="build-title">Ajustar · slot <span id="build-slot-label">Frente</span></p>
-
-          <div class="build-row">
-            <div class="build-row-head">
-              <span>Nível</span>
-              <strong id="cfg-level-val">10</strong>
-            </div>
-            <input id="cfg-level" type="range" min="1" max="50" value="10" />
-          </div>
-
-          <div class="build-row">
-            <div class="build-row-head">
-              <span>Raridade</span>
-              <strong id="cfg-rarity-val">★★★☆☆</strong>
-            </div>
-            <div class="star-picker" id="cfg-rarity" role="group" aria-label="Raridade"></div>
-          </div>
-
-          <div class="build-row">
-            <div class="build-row-head">
-              <span>Despertar</span>
-              <strong id="cfg-awaken-val">Base</strong>
-            </div>
-            <div class="awaken-picker" id="cfg-awaken" role="group" aria-label="Despertar"></div>
-          </div>
-
-          <p class="build-hint" id="build-hint">
-            Básicos/skills focam a frente · Nível importa: nv10 ≈ 2× nv5, nv20 ≈ 2× nv10…
-          </p>
-        </div>
-
         <ul id="detail-stats" class="detail-stats"></ul>
         <div class="detail-abilities">
           <div>
@@ -1801,6 +2016,13 @@ button {
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- Torres -->
+    <section id="screen-tower" class="screen screen-tower" hidden>
+      <div class="tower-tabs" id="tower-tabs"></div>
+      <h2 class="section-title" id="tower-title">Torre</h2>
+      <div class="tower-ladder" id="tower-ladder"></div>
     </section>
 
     <!-- Batalha -->
@@ -1823,25 +2045,31 @@ button {
 
     <!-- Resultado -->
     <section id="screen-result" class="screen screen-result" hidden>
-      <p class="result-label">Vencedor</p>
+      <p class="result-label">Resultado</p>
       <h2 id="result-name"></h2>
       <p id="result-summary"></p>
     </section>
 
+    <!-- Recompensa -->
+    <section id="screen-reward" class="screen screen-reward" hidden>
+      <h2 class="section-title">O que fazer com o herói?</h2>
+      <div id="reward-card"></div>
+      <div class="reward-actions" id="reward-actions"></div>
+    </section>
+
     <footer class="dock">
-      <button type="button" id="btn-swap" class="btn ghost">Trocar times</button>
-      <button type="button" id="btn-primary" class="btn primary">Iniciar luta</button>
+      <button type="button" id="btn-secondary" class="btn ghost">Voltar</button>
+      <button type="button" id="btn-primary" class="btn primary">Continuar</button>
     </footer>
 
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <script src="/scripts/game.js?v=25"></script>
+  <script src="/scripts/game.js?v=26"></script>
   <script>
-    // Injeta CSS inline se o link externo falhar no preview
     (function () {
       if (document.getElementById("arena-inline-css")) return;
-      fetch("/styles/style.css?v=25")
+      fetch("/styles/style.css?v=26")
         .then(function (r) { return r.text(); })
         .then(function (css) {
           var s = document.createElement("style");
