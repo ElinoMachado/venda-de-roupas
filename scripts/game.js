@@ -1023,17 +1023,38 @@
     return rarity; // 1→2 needs 1, 2→3 needs 2, ...
   }
 
+  function spareCopies(entry) {
+    return Math.max(0, (entry.copies || 1) - 1);
+  }
+
+  /** Cópias 5★ sobrando (só existem quando o herói já está 5★). */
+  function fiveStarCopies(entry) {
+    if (!entry || entry.rarity < 5) return 0;
+    return spareCopies(entry);
+  }
+
   function autoFuse(entry) {
     let fused = false;
     while (entry.rarity < 5) {
       const need = copiesNeededForNextStar(entry.rarity);
-      const spare = Math.max(0, entry.copies - 1);
+      const spare = spareCopies(entry);
       if (spare < need) break;
       entry.copies -= need;
       entry.rarity += 1;
       fused = true;
     }
     return fused;
+  }
+
+  function canAwaken(entry) {
+    return !!entry && entry.rarity >= 5 && entry.awakened < 3 && fiveStarCopies(entry) >= 1;
+  }
+
+  function awakenHero(entry) {
+    if (!canAwaken(entry)) return false;
+    entry.copies -= 1;
+    entry.awakened += 1;
+    return true;
   }
 
   function addHeroToCollection(id, opts) {
@@ -1280,24 +1301,36 @@
     const template = getTemplate(entry.id);
     const preview = createCombatant(entryToPick(entry), "x", "front");
     const need = copiesNeededForNextStar(entry.rarity);
-    const spare = Math.max(0, entry.copies - 1);
+    const spare = spareCopies(entry);
+    const star5 = fiveStarCopies(entry);
     const xpNeed = xpToNextLevel(entry.level);
+    const awakenReady = canAwaken(entry);
     box.innerHTML =
       "<h2>" + template.name + "</h2>" +
       '<p class="detail-meta">' + template.className + " · Nv." + entry.level + " · " +
       starsHtml(entry.rarity) + " · " + awakenedLabel(entry.awakened) + "</p>" +
       '<p class="fuse-line">Cópias: <strong>' + entry.copies +
       "</strong> · sobrando <strong>" + spare + "</strong>" +
-      (entry.rarity < 5 ? " · próxima estrela precisa <strong>" + need + "</strong>" : " · raridade máx.") +
+      (entry.rarity < 5
+        ? " · próxima estrela precisa <strong>" + need + "</strong>"
+        : " · cópias 5★: <strong>" + star5 + "</strong>") +
       "</p>" +
+      '<p class="fuse-line">Despertar consome <strong>1 cópia 5★</strong> por nível (máx. D3).</p>' +
       '<div class="heroes-controls">' +
       '<button type="button" class="btn ghost" data-hero-act="level"' +
       (!xpNeed || state.save.xp < xpNeed ? " disabled" : "") +
       ">Subir nível (" + (xpNeed == null ? "máx" : xpNeed + " XP") + ")</button>" +
-      '<button type="button" class="btn ghost" data-hero-act="awaken-up"' +
-      (entry.awakened >= 3 ? " disabled" : "") + ">Despertar +</button>" +
-      '<button type="button" class="btn ghost" data-hero-act="awaken-down"' +
-      (entry.awakened <= 0 ? " disabled" : "") + ">Despertar −</button>" +
+      '<button type="button" class="btn ghost" data-hero-act="awaken"' +
+      (!awakenReady ? " disabled" : "") +
+      ">" +
+      (entry.awakened >= 3
+        ? "Despertar máx."
+        : entry.rarity < 5
+          ? "Despertar (precisa 5★)"
+          : star5 < 1
+            ? "Despertar (sem cópia 5★)"
+            : "Despertar → D" + (entry.awakened + 1) + " (−1 cópia 5★)") +
+      "</button>" +
       "</div>" +
       "<ul class='detail-stats'>" +
       [["Vida", preview.maxHp], ["Dano", preview.damage], ["Defesa", preview.defense], ["Velocidade", preview.speed]]
@@ -1998,14 +2031,16 @@
           showToast(getTemplate(entry.id).name + " → Nv." + entry.level);
           renderHeroes();
           syncTeamFromSave();
-        } else if (act === "awaken-up" && entry.awakened < 3) {
-          entry.awakened += 1;
+        } else if (act === "awaken") {
+          if (!canAwaken(entry)) {
+            if (entry.rarity < 5) showToast("Só desperta em 5★");
+            else if (entry.awakened >= 3) showToast("Despertar no máximo");
+            else showToast("Precisa de 1 cópia 5★");
+            return;
+          }
+          awakenHero(entry);
           persist();
-          renderHeroes();
-          syncTeamFromSave();
-        } else if (act === "awaken-down" && entry.awakened > 0) {
-          entry.awakened -= 1;
-          persist();
+          showToast(getTemplate(entry.id).name + " → " + awakenedLabel(entry.awakened));
           renderHeroes();
           syncTeamFromSave();
         }
